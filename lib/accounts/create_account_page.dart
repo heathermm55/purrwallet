@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rust_plugin/src/rust/api/nostr.dart';
+import '../../services/auth_service.dart';
 import '../main_app_page.dart';
 
 /// Create account page
@@ -14,6 +15,7 @@ class CreateAccountPage extends StatefulWidget {
 class _CreateAccountPageState extends State<CreateAccountPage> {
   bool _isGenerating = false;
   NostrKeysWithBech32? _generatedKeys;
+  final _displayNameController = TextEditingController();
 
   Future<void> _generateAccount() async {
     setState(() {
@@ -42,6 +44,38 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
     }
   }
 
+  Future<void> _saveAccount() async {
+    if (_generatedKeys == null) return;
+    
+    final displayName = _displayNameController.text.trim();
+
+    try {
+      // Create user account with auto-generated password
+      final user = await AuthService.loginWithPrivateKey(
+        privateKey: _generatedKeys!.privateKey,
+        displayName: displayName.isNotEmpty ? displayName : null,
+      );
+      
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const MainAppPage(),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save account: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _copyToClipboard(String text, String label) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
@@ -63,11 +97,12 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
         title: const Text('CREATE ACCOUNT'),
         backgroundColor: const Color(0xFF1A1A1A),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             const Text(
               'Generate New Nostr Account',
               style: TextStyle(
@@ -188,19 +223,24 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
               ),
               const SizedBox(height: 30),
               
-              // Continue button
+              // Display name input
+              TextField(
+                controller: _displayNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Display Name (Optional)',
+                  hintText: 'Enter your display name',
+                  helperText: 'Leave empty to use auto-generated name',
+                ),
+                maxLines: 1,
+              ),
+              
+              const SizedBox(height: 30),
+              
+              // Save account and continue button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    // TODO: Navigate to main app interface
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MainAppPage(),
-                      ),
-                    );
-                  },
+                  onPressed: _saveAccount,
                   child: const Text('CONTINUE TO WALLET'),
                 ),
               ),
@@ -214,15 +254,8 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                 ),
               ),
             ],
-            
-            const SizedBox(height: 30),
-            
-            // Back button
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('← Back to Home'),
-            ),
           ],
+          ),
         ),
       ),
     );

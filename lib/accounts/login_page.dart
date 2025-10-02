@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rust_plugin/src/rust/api/nostr.dart';
+import '../../services/auth_service.dart';
 import '../main_app_page.dart';
 
 /// Login page
@@ -12,10 +13,12 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _privateKeyController = TextEditingController();
+  final _displayNameController = TextEditingController();
   bool _isLoading = false;
 
   Future<void> _login() async {
     final privateKey = _privateKeyController.text.trim();
+    final displayName = _displayNameController.text.trim();
     
     if (privateKey.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -32,20 +35,11 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      String hexPrivateKey;
-      
-      // Check if input is nsec format (starts with "nsec")
-      if (privateKey.startsWith('nsec')) {
-        hexPrivateKey = nsecToSecretKey(nsec: privateKey);
-      } else {
-        // Assume it's hex format
-        hexPrivateKey = privateKey;
-      }
-      
-      // Validate private key and get public key
-      final publicKey = getPublicKeyFromPrivate(privateKey: hexPrivateKey);
-      
-      // TODO: Save login state
+      // Login with private key (password auto-generated)
+      final user = await AuthService.loginWithPrivateKey(
+        privateKey: privateKey,
+        displayName: displayName.isNotEmpty ? displayName : null,
+      );
       
       if (mounted) {
         Navigator.pushReplacement(
@@ -62,7 +56,7 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Invalid private key: $e'),
+            content: Text('Login failed: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -229,6 +223,18 @@ class _LoginPageState extends State<LoginPage> {
                 helperText: 'Enter your Nostr private key (nsec or hex) to login',
               ),
               obscureText: true,
+              maxLines: 1,
+            ),
+            
+            const SizedBox(height: 20),
+            
+            TextField(
+              controller: _displayNameController,
+              decoration: const InputDecoration(
+                labelText: 'Display Name (Optional)',
+                hintText: 'Enter your display name',
+                helperText: 'Leave empty to use auto-generated name',
+              ),
               maxLines: 1,
             ),
             
