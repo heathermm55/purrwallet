@@ -1,6 +1,6 @@
 import 'package:rust_plugin/src/rust/api/nostr.dart';
-import '../models/user.dart';
-import 'database_service.dart';
+import 'models/user.dart';
+import 'user_service.dart';
 
 /// User authentication service
 class AuthService {
@@ -12,6 +12,11 @@ class AuthService {
   /// Set current user (for auto-login)
   static void setCurrentUser(User user) {
     _currentUser = user;
+  }
+  
+  /// Initialize auth service
+  static Future<void> init() async {
+    // Any initial setup for auth service if needed
   }
   
   /// Login with private key (nsec or hex) - password auto-generated
@@ -34,19 +39,19 @@ class AuthService {
       final publicKey = getPublicKeyFromPrivate(privateKey: hexPrivateKey);
       
       // Check if user already exists
-      User? user = await DatabaseService.getUserByPublicKey(publicKey);
+      User? user = await UserService.getUserByPublicKey(publicKey);
       
       if (user != null) {
         // Set as active user
-        await DatabaseService.setActiveUser(publicKey);
+        await UserService.setActiveUser(publicKey);
         user.setActive();
-        await DatabaseService.updateUser(user);
+        await UserService.updateUser(user);
         
         _currentUser = user;
         return user;
       } else {
         // Create new user with auto-generated password
-        user = await DatabaseService.createUser(
+        user = await UserService.createUser(
           publicKey: publicKey,
           displayName: displayName ?? 'User ${publicKey.substring(0, 8)}',
           loginType: LoginType.nsec,
@@ -79,21 +84,21 @@ class AuthService {
       final publicKey = keys.publicKey; // Use hex format
       
       // Check if user already exists
-      User? user = await DatabaseService.getUserByPublicKey(publicKey);
+      User? user = await UserService.getUserByPublicKey(publicKey);
       
       if (user != null) {
         // Update signer info
         user.signerBundleId = signerBundleId;
         user.signerAppName = signerAppName;
-        await DatabaseService.setActiveUser(publicKey);
+        await UserService.setActiveUser(publicKey);
         user.setActive();
-        await DatabaseService.updateUser(user);
+        await UserService.updateUser(user);
         
         _currentUser = user;
         return user;
       } else {
         // Create new user
-        user = await DatabaseService.createUser(
+        user = await UserService.createUser(
           publicKey: publicKey,
           displayName: displayName ?? 'NostrSigner User',
           loginType: LoginType.signer,
@@ -120,20 +125,20 @@ class AuthService {
       // Use public key in hex format directly
       
       // Check if user already exists
-      User? user = await DatabaseService.getUserByPublicKey(publicKey);
+      User? user = await UserService.getUserByPublicKey(publicKey);
       
       if (user != null) {
         // Update bunker info
         user.bunkerUrl = bunkerUrl;
-        await DatabaseService.setActiveUser(publicKey);
+        await UserService.setActiveUser(publicKey);
         user.setActive();
-        await DatabaseService.updateUser(user);
+        await UserService.updateUser(user);
         
         _currentUser = user;
         return user;
       } else {
         // Create new user
-        user = await DatabaseService.createUser(
+        user = await UserService.createUser(
           publicKey: publicKey,
           displayName: displayName ?? 'Bunker User',
           loginType: LoginType.bunker,
@@ -153,30 +158,11 @@ class AuthService {
   static Future<void> logout() async {
     if (_currentUser != null) {
       _currentUser!.setInactive();
-      await DatabaseService.updateUser(_currentUser!);
+      await UserService.updateUser(_currentUser!);
       _currentUser = null;
     }
   }
   
-  /// Get current user's decrypted private key
-  static Future<String?> getCurrentUserPrivateKey() async {
-    if (_currentUser == null) return null;
-    
-    if (_currentUser!.loginType == LoginType.nsec) {
-      return await DatabaseService.getDecryptedPrivateKey(_currentUser!.publicKey);
-    }
-    
-    return null; // No private key for signer or bunker
-  }
-  
   /// Check if user is logged in
   static bool get isLoggedIn => _currentUser != null;
-  
-  /// Get login type of current user
-  static LoginType? get currentLoginType => _currentUser?.loginType;
-  
-  /// Initialize auth service (load active user)
-  static Future<void> init() async {
-    _currentUser = await DatabaseService.getActiveUser();
-  }
 }

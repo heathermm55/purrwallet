@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rust_plugin/src/rust/api/nostr.dart';
-import '../../services/auth_service.dart';
+import 'auth_service.dart';
 import '../main_app_page.dart';
 
 /// Login page

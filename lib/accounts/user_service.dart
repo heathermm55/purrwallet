@@ -1,36 +1,18 @@
-import 'package:isar/isar.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart';
 import 'package:uuid/uuid.dart';
-import 'package:path_provider/path_provider.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:math';
-import '../models/user.dart';
+import 'package:isar/isar.dart';
+import 'models/user.dart';
+import '../db/database_service.dart';
 
-/// Database service for managing users and encryption
-class DatabaseService {
-  static Isar? _isar;
+/// User service for managing user data and encryption
+class UserService {
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
-  
-  /// Initialize Isar database
-  static Future<void> init() async {
-    final dir = await getApplicationDocumentsDirectory();
-    _isar = await Isar.open(
-      [UserSchema],
-      directory: dir.path,
-    );
-  }
-  
-  /// Get Isar instance
-  static Isar get isar {
-    if (_isar == null) {
-      throw Exception('Database not initialized. Call DatabaseService.init() first.');
-    }
-    return _isar!;
-  }
-  
+
   /// Generate a strong random password
   static String _generateStrongPassword() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#\$%^&*()_+-=[]{}|;:,.<>?';
@@ -131,8 +113,8 @@ class DatabaseService {
     }
     
     // Save to database
-    await isar.writeTxn(() async {
-      await isar.users.put(user);
+    await DatabaseService.isar.writeTxn(() async {
+      await DatabaseService.isar.users.put(user);
     });
     
     return user;
@@ -140,86 +122,63 @@ class DatabaseService {
   
   /// Get user by public key
   static Future<User?> getUserByPublicKey(String publicKey) async {
-    return await isar.users.where().publicKeyEqualTo(publicKey).findFirst();
+    return await DatabaseService.isar.users.where().publicKeyEqualTo(publicKey).findFirst();
   }
   
   /// Get active user
   static Future<User?> getActiveUser() async {
-    return await isar.users.where().filter().isActiveEqualTo(true).findFirst();
+    return await DatabaseService.isar.users.where().filter().isActiveEqualTo(true).findFirst();
   }
   
   /// Get all users
   static Future<List<User>> getAllUsers() async {
-    return await isar.users.where().findAll();
+    return await DatabaseService.isar.users.where().findAll();
   }
   
   /// Update user
   static Future<void> updateUser(User user) async {
-    await isar.writeTxn(() async {
-      await isar.users.put(user);
+    await DatabaseService.isar.writeTxn(() async {
+      await DatabaseService.isar.users.put(user);
     });
   }
   
   /// Delete user
-  static Future<void> deleteUser(String publicKey) async {
-    await isar.writeTxn(() async {
-      await isar.users.filter().publicKeyEqualTo(publicKey).deleteAll();
+  static Future<void> deleteUser(User user) async {
+    await DatabaseService.isar.writeTxn(() async {
+      await DatabaseService.isar.users.delete(user.id);
     });
     
-    // Delete encryption password
-    await deleteEncryptionPassword(publicKey);
+    // Also delete encryption password
+    await deleteEncryptionPassword(user.publicKey);
   }
   
-  /// Set user as active (deactivate others)
+  /// Set active user
   static Future<void> setActiveUser(String publicKey) async {
-    await isar.writeTxn(() async {
-      // Deactivate all users
-      final allUsers = await isar.users.where().findAll();
-      for (final user in allUsers) {
-        user.setInactive();
-        await isar.users.put(user);
-      }
-      
-      // Activate selected user
-      final user = await isar.users.where().publicKeyEqualTo(publicKey).findFirst();
-      if (user != null) {
-        user.setActive();
-        await isar.users.put(user);
-      }
-    });
-  }
-  
-  /// Get decrypted private key for user
-  static Future<String?> getDecryptedPrivateKey(String publicKey) async {
+    // First, deactivate all users
+    final allUsers = await getAllUsers();
+    for (final user in allUsers) {
+      user.setInactive();
+      await updateUser(user);
+    }
+    
+    // Then activate the specified user
     final user = await getUserByPublicKey(publicKey);
-    if (user == null) return null;
-    
-    final password = await getEncryptionPassword(publicKey);
-    if (password == null) return null;
-    
-    try {
-      return decryptPrivateKey(user.encryptedPrivateKey, password);
-    } catch (e) {
-      return null;
+    if (user != null) {
+      user.setActive();
+      await updateUser(user);
     }
   }
   
-  /// Verify user password
+  /// Verify password for user
   static Future<bool> verifyPassword(String publicKey, String password) async {
-    final user = await getUserByPublicKey(publicKey);
-    if (user == null) return false;
-    
     try {
+      final user = await getUserByPublicKey(publicKey);
+      if (user == null) return false;
+      
       decryptPrivateKey(user.encryptedPrivateKey, password);
       return true;
     } catch (e) {
       return false;
     }
-  }
-  
-  /// Close database
-  static Future<void> close() async {
-    await _isar?.close();
-    _isar = null;
   }
 }
