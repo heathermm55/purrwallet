@@ -10,37 +10,40 @@ class LoginHomePage extends StatefulWidget {
   State<LoginHomePage> createState() => _LoginHomePageState();
 }
 
-class _LoginHomePageState extends State<LoginHomePage>
-    with TickerProviderStateMixin {
+class _LoginHomePageState extends State<LoginHomePage> {
   late PageController _pageController;
-  late AnimationController _animationController;
   int _currentPage = 0;
 
-  final List<Map<String, String>> _features = [
+  final List<Map<String, dynamic>> _features = [
     {
-      'title': 'PURRWALLET',
-      'subtitle': 'Nostr Cashu Wallet',
-      'description': 'Decentralized Bitcoin Lightning Wallet',
+      'title': 'CROSS-PLATFORM',
+      'subtitle': 'Ecash Wallet',
+      'description': 'Available on all platforms',
+      'icon': Icons.devices,
     },
     {
-      'title': 'SECURE',
-      'subtitle': 'End-to-End Encryption',
-      'description': 'Your keys, your coins, your privacy',
+      'title': 'LOCAL/TOR',
+      'subtitle': 'Mint Support',
+      'description': 'Connect to local or Tor mints',
+      'icon': Icons.network_wifi,
     },
     {
-      'title': 'FAST',
-      'subtitle': 'Lightning Network',
-      'description': 'Instant Bitcoin transactions',
+      'title': 'SECURE & FAST',
+      'subtitle': 'Lightning Speed',
+      'description': 'Secure and lightning-fast transactions',
+      'icon': Icons.flash_on,
     },
     {
-      'title': 'SOCIAL',
-      'subtitle': 'Nostr Protocol',
-      'description': 'Decentralized social payments',
+      'title': 'IRC STYLE',
+      'subtitle': 'Retro Interface',
+      'description': 'Classic terminal aesthetics',
+      'icon': Icons.terminal,
     },
     {
-      'title': 'OPEN',
-      'subtitle': 'Open Source',
-      'description': 'Transparent and auditable code',
+      'title': 'OPEN SOURCE',
+      'subtitle': 'Transparent Code',
+      'description': 'Fully auditable and transparent',
+      'icon': Icons.code,
     },
   ];
 
@@ -48,10 +51,6 @@ class _LoginHomePageState extends State<LoginHomePage>
   void initState() {
     super.initState();
     _pageController = PageController();
-    _animationController = AnimationController(
-      duration: const Duration(seconds: 3),
-      vsync: this,
-    )..repeat();
 
     // Auto-scroll through features
     _startAutoScroll();
@@ -80,7 +79,6 @@ class _LoginHomePageState extends State<LoginHomePage>
   @override
   void dispose() {
     _pageController.dispose();
-    _animationController.dispose();
     super.dispose();
   }
 
@@ -105,69 +103,56 @@ class _LoginHomePageState extends State<LoginHomePage>
                 itemCount: _features.length,
                 itemBuilder: (context, index) {
                   final feature = _features[index];
-                  return AnimatedBuilder(
-                    animation: _animationController,
-                    builder: (context, child) {
-                      return Container(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                  return Container(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Feature display with icon
+                        Column(
                           children: [
-                            // Animated ASCII art border
-                            Container(
-                              padding: const EdgeInsets.all(15),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: Color(0xFF00FF00).withOpacity(
-                                    0.5 + 0.5 * _animationController.value,
-                                  ),
-                                  width: 2,
-                                ),
-                                borderRadius: BorderRadius.circular(8),
+                            // Icon
+                            Icon(
+                              feature['icon'] as IconData,
+                              size: 48,
+                              color: const Color(0xFF00FF00),
+                            ),
+                            const SizedBox(height: 16),
+                            // Title
+                            Text(
+                              feature['title']!,
+                              style: const TextStyle(
+                                color: Color(0xFF00FF00),
+                                fontFamily: 'Courier',
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
                               ),
-                              child: Column(
-                                children: [
-                                  Text(
-                                    feature['title']!,
-                                    style: TextStyle(
-                                      color: Color(0xFF00FF00).withOpacity(
-                                        0.7 + 0.3 * _animationController.value,
-                                      ),
-                                      fontFamily: 'Courier',
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    feature['subtitle']!,
-                                    style: TextStyle(
-                                      color: Color(0xFF00FF00).withOpacity(
-                                        0.5 + 0.3 * _animationController.value,
-                                      ),
-                                      fontFamily: 'Courier',
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    feature['description']!,
-                                    style: TextStyle(
-                                      color: Color(0xFF666666).withOpacity(
-                                        0.7 + 0.3 * _animationController.value,
-                                      ),
-                                      fontFamily: 'Courier',
-                                      fontSize: 12,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
+                            ),
+                            const SizedBox(height: 8),
+                            // Subtitle
+                            Text(
+                              feature['subtitle']!,
+                              style: const TextStyle(
+                                color: Color(0xFF00FF00),
+                                fontFamily: 'Courier',
+                                fontSize: 16,
                               ),
+                            ),
+                            const SizedBox(height: 8),
+                            // Description
+                            Text(
+                              feature['description']!,
+                              style: const TextStyle(
+                                color: Color(0xFF666666),
+                                fontFamily: 'Courier',
+                                fontSize: 12,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
                           ],
                         ),
-                      );
-                    },
+                      ],
+                    ),
                   );
                 },
               ),
@@ -233,16 +218,6 @@ class _LoginHomePageState extends State<LoginHomePage>
             ),
             
             const SizedBox(height: 40),
-            
-            // IRC-style welcome message
-            const Text(
-              'Welcome to the decentralized future!',
-              style: TextStyle(
-                color: Color(0xFF666666),
-                fontFamily: 'Courier',
-                fontSize: 12,
-              ),
-            ),
           ],
         ),
       ),

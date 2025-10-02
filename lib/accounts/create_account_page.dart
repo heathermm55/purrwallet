@@ -174,7 +174,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
             // Back button
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('← Back to Login'),
+              child: const Text('← Back to Home'),
             ),
           ],
         ),
