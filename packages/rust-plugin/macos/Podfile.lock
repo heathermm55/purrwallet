@@ -1,0 +1,22 @@
+PODS:
+  - FlutterMacOS (1.0.0)
+  - rust_lib_nostr_rust (0.0.1):
+    - FlutterMacOS
+
+DEPENDENCIES:
+  - FlutterMacOS (from `Flutter/ephemeral`)
+  - rust_lib_nostr_rust (from `Flutter/ephemeral/.symlinks/plugins/rust_lib_nostr_rust/macos`)
+
+EXTERNAL SOURCES:
+  FlutterMacOS:
+    :path: Flutter/ephemeral
+  rust_lib_nostr_rust:
+    :path: Flutter/ephemeral/.symlinks/plugins/rust_lib_nostr_rust/macos
+
+SPEC CHECKSUMS:
+  FlutterMacOS: 8f6f14fa908a6fb3fba0cd85dbd81ec4b251fb24
+  rust_lib_nostr_rust: c7c7e4a49660ac3b35f8c47829d0b506ed947075
+
+PODFILE CHECKSUM: 7eb978b976557c8c1cd717d8185ec483fd090a82
+
+COCOAPODS: 1.16.2

@@ -1,0 +1,22 @@
+[package]
+name = "rust_lib_nostr_rust"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+flutter_rust_bridge = "=2.7.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+hex = "0.4"
+base64 = "0.22"
+anyhow = "1.0"
+thiserror = "2.0.17"
+url = "2.5.7"
+
+# Local dependencies - use local nostr and cdk
+nostr = { path = "../../../../nostr/crates/nostr", features = ["nip04", "nip44", "nip60"] }
+cdk = { path = "../../../../cdk/crates/cdk" }
+cashu = { path = "../../../../cdk/crates/cashu" }
