@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rust_plugin/src/rust/api/nostr.dart';
-import 'auth_service.dart';
+import 'services/auth_service.dart';
 import '../main_app_page.dart';
 
 /// Create account page

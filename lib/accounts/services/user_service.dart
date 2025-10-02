@@ -6,8 +6,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:math';
 import 'package:isar/isar.dart';
-import 'models/user.dart';
-import '../db/database_service.dart';
+import '../models/user.dart';
+import '../../db/database_service.dart';
 
 /// User service for managing user data and encryption
 class UserService {

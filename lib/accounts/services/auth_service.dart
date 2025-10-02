@@ -1,5 +1,5 @@
 import 'package:rust_plugin/src/rust/api/nostr.dart';
-import 'models/user.dart';
+import '../models/user.dart';
 import 'user_service.dart';
 
 /// User authentication service

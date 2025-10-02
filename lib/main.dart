@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:rust_plugin/src/rust/frb_generated.dart';
 import 'db/database_service.dart';
-import 'accounts/auth_service.dart';
-import 'accounts/user_service.dart';
+import 'accounts/services/auth_service.dart';
+import 'accounts/services/user_service.dart';
 import 'accounts/login_home_page.dart';
 import 'main_app_page.dart';
 
