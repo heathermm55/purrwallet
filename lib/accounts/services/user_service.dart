@@ -84,6 +84,9 @@ class UserService {
     List<String>? relays,
     List<String>? mints,
   }) async {
+    // Ensure user database is open
+    await DatabaseService.openUserDatabase(publicKey);
+    
     // Generate strong password automatically
     final password = _generateStrongPassword();
     
@@ -122,11 +125,14 @@ class UserService {
   
   /// Get user by public key
   static Future<User?> getUserByPublicKey(String publicKey) async {
+    await DatabaseService.openUserDatabase(publicKey);
     return await DatabaseService.isar.users.where().publicKeyEqualTo(publicKey).findFirst();
   }
   
   /// Get active user
   static Future<User?> getActiveUser() async {
+    // For active user, we need to check all user databases
+    // This is a simplified implementation - in practice you might want to store active user info globally
     return await DatabaseService.isar.users.where().filter().isActiveEqualTo(true).findFirst();
   }
   
@@ -137,6 +143,7 @@ class UserService {
   
   /// Update user
   static Future<void> updateUser(User user) async {
+    await DatabaseService.openUserDatabase(user.publicKey);
     await DatabaseService.isar.writeTxn(() async {
       await DatabaseService.isar.users.put(user);
     });
@@ -144,6 +151,7 @@ class UserService {
   
   /// Delete user
   static Future<void> deleteUser(User user) async {
+    await DatabaseService.openUserDatabase(user.publicKey);
     await DatabaseService.isar.writeTxn(() async {
       await DatabaseService.isar.users.delete(user.id);
     });
@@ -154,7 +162,9 @@ class UserService {
   
   /// Set active user
   static Future<void> setActiveUser(String publicKey) async {
-    // First, deactivate all users
+    await DatabaseService.openUserDatabase(publicKey);
+    
+    // First, deactivate all users in current database
     final allUsers = await getAllUsers();
     for (final user in allUsers) {
       user.setInactive();

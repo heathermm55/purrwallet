@@ -224,7 +224,7 @@ class _MainAppPageState extends State<MainAppPage> {
           children: [
             _buildBottomNavButton('Receive', Icons.keyboard_arrow_down),
             _buildBottomNavButton('Scan', Icons.qr_code_scanner),
-            _buildBottomNavButton('Sweep', Icons.swap_horiz),
+            _buildBottomNavButton('Swap', Icons.swap_horiz),
             _buildBottomNavButton('Send', Icons.keyboard_arrow_up),
           ],
         ),

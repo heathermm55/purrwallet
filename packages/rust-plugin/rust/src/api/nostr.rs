@@ -270,3 +270,122 @@ pub struct NostrKeysWithBech32 {
     pub nsec: String,
     pub npub: String,
 }
+
+/// Cashu proof structure for NIP-60
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CashuProof {
+    pub id: String,
+    pub amount: u64,
+    pub secret: String,
+    pub c: String,
+}
+
+/// NIP-60 Wallet Event functions
+/// Create a NIP-60 wallet event
+#[flutter_rust_bridge::frb(sync)]
+pub fn create_nip60_wallet_event(
+    privkey: String,
+    mints: Vec<String>,
+    secret_key: String,
+    public_key: String,
+) -> Result<String, String> {
+    let secret_key = SecretKey::from_str(&secret_key)
+        .map_err(|e| format!("Invalid secret key: {}", e))?;
+    let public_key = PublicKey::from_str(&public_key)
+        .map_err(|e| format!("Invalid public key: {}", e))?;
+
+    let mint_urls: Result<Vec<::url::Url>, _> = mints.into_iter()
+        .map(|mint| ::url::Url::parse(&mint))
+        .collect();
+    let mint_urls = mint_urls.map_err(|e| format!("Invalid mint URL: {}", e))?;
+
+    let wallet_event = WalletEvent::new(privkey, mint_urls);
+    let event_builder = wallet_event.to_event_builder(&secret_key, &public_key)
+        .map_err(|e| format!("Failed to create wallet event: {}", e))?;
+
+    // For now, return a placeholder since EventBuilder doesn't implement Serialize
+    Ok("wallet_event_placeholder".to_string())
+}
+
+/// Parse a NIP-60 wallet event
+#[flutter_rust_bridge::frb(sync)]
+pub fn parse_nip60_wallet_event(
+    event_content: String,
+    secret_key: String,
+    public_key: String,
+) -> Result<(String, Vec<String>), String> {
+    let secret_key = SecretKey::from_str(&secret_key)
+        .map_err(|e| format!("Invalid secret key: {}", e))?;
+    let public_key = PublicKey::from_str(&public_key)
+        .map_err(|e| format!("Invalid public key: {}", e))?;
+
+    let wallet_event = WalletEvent::from_encrypted_content(&event_content, &secret_key, &public_key)
+        .map_err(|e| format!("Failed to parse wallet event: {}", e))?;
+
+    let mints: Vec<String> = wallet_event.mints.into_iter()
+        .map(|url| url.to_string())
+        .collect();
+
+    Ok((wallet_event.privkey, mints))
+}
+
+/// Create a NIP-60 token event
+#[flutter_rust_bridge::frb(sync)]
+pub fn create_nip60_token_event(
+    mint_url: String,
+    proofs: Vec<CashuProof>,
+    del: Vec<String>,
+    secret_key: String,
+    public_key: String,
+) -> Result<String, String> {
+    let secret_key = SecretKey::from_str(&secret_key)
+        .map_err(|e| format!("Invalid secret key: {}", e))?;
+    let public_key = PublicKey::from_str(&public_key)
+        .map_err(|e| format!("Invalid public key: {}", e))?;
+
+    let mint_url = ::url::Url::parse(&mint_url)
+        .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
+    let cashu_proofs: Vec<nostr::nips::nip60::CashuProof> = proofs.into_iter()
+        .map(|p| nostr::nips::nip60::CashuProof {
+            id: p.id,
+            amount: p.amount,
+            secret: p.secret,
+            c: p.c,
+        })
+        .collect();
+
+    let token_event = TokenEventData::new(mint_url, cashu_proofs);
+    let event_builder = token_event.to_event_builder(&secret_key, &public_key)
+        .map_err(|e| format!("Failed to create token event: {}", e))?;
+
+    // For now, return a placeholder since EventBuilder doesn't implement Serialize
+    Ok("token_event_placeholder".to_string())
+}
+
+/// Parse a NIP-60 token event
+#[flutter_rust_bridge::frb(sync)]
+pub fn parse_nip60_token_event(
+    event_content: String,
+    secret_key: String,
+    public_key: String,
+) -> Result<(String, Vec<CashuProof>, Vec<String>), String> {
+    let secret_key = SecretKey::from_str(&secret_key)
+        .map_err(|e| format!("Invalid secret key: {}", e))?;
+    let public_key = PublicKey::from_str(&public_key)
+        .map_err(|e| format!("Invalid public key: {}", e))?;
+
+    let token_event = TokenEventData::from_encrypted_content(&event_content, &secret_key, &public_key)
+        .map_err(|e| format!("Failed to parse token event: {}", e))?;
+
+    let proofs: Vec<CashuProof> = token_event.proofs.into_iter()
+        .map(|p| CashuProof {
+            id: p.id,
+            amount: p.amount,
+            secret: p.secret,
+            c: p.c,
+        })
+        .collect();
+
+    Ok((token_event.mint.to_string(), proofs, Vec::new()))
+}
