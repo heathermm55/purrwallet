@@ -1,6 +1,7 @@
 use nostr::key::{Keys, PublicKey, SecretKey};
 use nostr::nips::nip04;
 use nostr::nips::nip44;
+use nostr::nips::nip19::{ToBech32, FromBech32};
 use nostr::event::{EventBuilder, EventId, Kind, Tag};
 use nostr::types::time::Timestamp;
 use nostr::secp256k1::schnorr::Signature;
@@ -206,4 +207,66 @@ pub fn greet(name: String) -> String {
 pub fn init_app() {
     // Default utilities - feel free to customize
     flutter_rust_bridge::setup_default_user_utils();
+}
+
+/// Convert secret key to nsec format
+#[flutter_rust_bridge::frb(sync)]
+pub fn secret_key_to_nsec(secret_key: String) -> Result<String, String> {
+    let secret_key = SecretKey::from_str(&secret_key)
+        .map_err(|e| format!("Invalid secret key: {}", e))?;
+    
+    secret_key.to_bech32()
+        .map_err(|e| format!("Failed to encode to nsec: {}", e))
+}
+
+/// Convert public key to npub format
+#[flutter_rust_bridge::frb(sync)]
+pub fn public_key_to_npub(public_key: String) -> Result<String, String> {
+    let public_key = PublicKey::from_str(&public_key)
+        .map_err(|e| format!("Invalid public key: {}", e))?;
+    
+    public_key.to_bech32()
+        .map_err(|e| format!("Failed to encode to npub: {}", e))
+}
+
+/// Convert nsec to secret key hex
+#[flutter_rust_bridge::frb(sync)]
+pub fn nsec_to_secret_key(nsec: String) -> Result<String, String> {
+    let secret_key = SecretKey::from_bech32(&nsec)
+        .map_err(|e| format!("Failed to decode nsec: {}", e))?;
+    
+    Ok(secret_key.to_secret_hex())
+}
+
+/// Convert npub to public key hex
+#[flutter_rust_bridge::frb(sync)]
+pub fn npub_to_public_key(npub: String) -> Result<String, String> {
+    let public_key = PublicKey::from_bech32(&npub)
+        .map_err(|e| format!("Failed to decode npub: {}", e))?;
+    
+    Ok(public_key.to_hex())
+}
+
+/// Generate keys and return both hex and bech32 formats
+#[flutter_rust_bridge::frb(sync)]
+pub fn generate_keys_with_bech32() -> Result<NostrKeysWithBech32, String> {
+    let keys = generate_keys()?;
+    
+    let nsec = secret_key_to_nsec(keys.private_key.clone())?;
+    let npub = public_key_to_npub(keys.public_key.clone())?;
+    
+    Ok(NostrKeysWithBech32 {
+        private_key: keys.private_key,
+        public_key: keys.public_key,
+        nsec,
+        npub,
+    })
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NostrKeysWithBech32 {
+    pub private_key: String,
+    pub public_key: String,
+    pub nsec: String,
+    pub npub: String,
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:rust_plugin/src/rust/api/nostr.dart';
 import '../main_app_page.dart';
 
@@ -12,7 +13,7 @@ class CreateAccountPage extends StatefulWidget {
 
 class _CreateAccountPageState extends State<CreateAccountPage> {
   bool _isGenerating = false;
-  NostrKeys? _generatedKeys;
+  NostrKeysWithBech32? _generatedKeys;
 
   Future<void> _generateAccount() async {
     setState(() {
@@ -20,8 +21,8 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
     });
 
     try {
-      // Call Rust function to generate Nostr keys
-      final keys = generateKeys();
+      // Call Rust function to generate Nostr keys with bech32 format
+      final keys = generateKeysWithBech32();
       setState(() {
         _generatedKeys = keys;
         _isGenerating = false;
@@ -38,6 +39,19 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _copyToClipboard(String text, String label) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$label copied to clipboard'),
+          backgroundColor: const Color(0xFF00FF00),
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -97,25 +111,57 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                     
                     const Text('Public Key (npub):'),
                     const SizedBox(height: 5),
-                    SelectableText(
-                      _generatedKeys!.publicKey,
-                      style: const TextStyle(
-                        fontFamily: 'Courier',
-                        fontSize: 12,
-                        color: Color(0xFF00FF00),
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SelectableText(
+                            _generatedKeys!.npub,
+                            style: const TextStyle(
+                              fontFamily: 'Courier',
+                              fontSize: 12,
+                              color: Color(0xFF00FF00),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        IconButton(
+                          onPressed: () => _copyToClipboard(_generatedKeys!.npub, 'npub'),
+                          icon: const Icon(
+                            Icons.copy,
+                            color: Color(0xFF00FF00),
+                            size: 20,
+                          ),
+                          tooltip: 'Copy npub',
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 15),
                     
                     const Text('Private Key (nsec):'),
                     const SizedBox(height: 5),
-                    SelectableText(
-                      _generatedKeys!.privateKey,
-                      style: const TextStyle(
-                        fontFamily: 'Courier',
-                        fontSize: 12,
-                        color: Color(0xFF00FF00),
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SelectableText(
+                            _generatedKeys!.nsec,
+                            style: const TextStyle(
+                              fontFamily: 'Courier',
+                              fontSize: 12,
+                              color: Color(0xFF00FF00),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        IconButton(
+                          onPressed: () => _copyToClipboard(_generatedKeys!.nsec, 'nsec'),
+                          icon: const Icon(
+                            Icons.copy,
+                            color: Color(0xFF00FF00),
+                            size: 20,
+                          ),
+                          tooltip: 'Copy nsec',
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 15),
                     
@@ -127,9 +173,9 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Text(
-                        '⚠️  IMPORTANT: Save your private key securely!\n'
-                        '   This is the only way to access your account.\n'
-                        '   Never share it with anyone.',
+                        '⚠️ IMPORTANT: Save your private key securely!\n'
+                        'This is the only way to access your account.\n'
+                        'Never share it with anyone.',
                         style: TextStyle(
                           color: Colors.red,
                           fontSize: 12,

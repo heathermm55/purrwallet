@@ -43,6 +43,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   NostrKeys dco_decode_nostr_keys(dynamic raw);
 
   @protected
+  NostrKeysWithBech32 dco_decode_nostr_keys_with_bech_32(dynamic raw);
+
+  @protected
   BigInt dco_decode_u_64(dynamic raw);
 
   @protected
@@ -74,6 +77,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   NostrKeys sse_decode_nostr_keys(SseDeserializer deserializer);
+
+  @protected
+  NostrKeysWithBech32 sse_decode_nostr_keys_with_bech_32(
+    SseDeserializer deserializer,
+  );
 
   @protected
   BigInt sse_decode_u_64(SseDeserializer deserializer);
@@ -119,6 +127,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_nostr_keys(NostrKeys self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_nostr_keys_with_bech_32(
+    NostrKeysWithBech32 self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_u_64(BigInt self, SseSerializer serializer);

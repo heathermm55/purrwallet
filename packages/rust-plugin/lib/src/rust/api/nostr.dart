@@ -6,7 +6,7 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `fmt`, `fmt`, `fmt`
 
 NostrKeys generateKeys() => RustLib.instance.api.crateApiNostrGenerateKeys();
 
@@ -67,6 +67,26 @@ bool verifyEvent({required NostrEvent event}) =>
 String greet({required String name}) =>
     RustLib.instance.api.crateApiNostrGreet(name: name);
 
+/// Convert secret key to nsec format
+String secretKeyToNsec({required String secretKey}) =>
+    RustLib.instance.api.crateApiNostrSecretKeyToNsec(secretKey: secretKey);
+
+/// Convert public key to npub format
+String publicKeyToNpub({required String publicKey}) =>
+    RustLib.instance.api.crateApiNostrPublicKeyToNpub(publicKey: publicKey);
+
+/// Convert nsec to secret key hex
+String nsecToSecretKey({required String nsec}) =>
+    RustLib.instance.api.crateApiNostrNsecToSecretKey(nsec: nsec);
+
+/// Convert npub to public key hex
+String npubToPublicKey({required String npub}) =>
+    RustLib.instance.api.crateApiNostrNpubToPublicKey(npub: npub);
+
+/// Generate keys and return both hex and bech32 formats
+NostrKeysWithBech32 generateKeysWithBech32() =>
+    RustLib.instance.api.crateApiNostrGenerateKeysWithBech32();
+
 class NostrEvent {
   final String id;
   final String pubkey;
@@ -126,4 +146,32 @@ class NostrKeys {
           runtimeType == other.runtimeType &&
           publicKey == other.publicKey &&
           privateKey == other.privateKey;
+}
+
+class NostrKeysWithBech32 {
+  final String privateKey;
+  final String publicKey;
+  final String nsec;
+  final String npub;
+
+  const NostrKeysWithBech32({
+    required this.privateKey,
+    required this.publicKey,
+    required this.nsec,
+    required this.npub,
+  });
+
+  @override
+  int get hashCode =>
+      privateKey.hashCode ^ publicKey.hashCode ^ nsec.hashCode ^ npub.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is NostrKeysWithBech32 &&
+          runtimeType == other.runtimeType &&
+          privateKey == other.privateKey &&
+          publicKey == other.publicKey &&
+          nsec == other.nsec &&
+          npub == other.npub;
 }

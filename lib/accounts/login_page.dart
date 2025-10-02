@@ -32,8 +32,18 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
+      String hexPrivateKey;
+      
+      // Check if input is nsec format (starts with "nsec")
+      if (privateKey.startsWith('nsec')) {
+        hexPrivateKey = nsecToSecretKey(nsec: privateKey);
+      } else {
+        // Assume it's hex format
+        hexPrivateKey = privateKey;
+      }
+      
       // Validate private key and get public key
-      final publicKey = getPublicKeyFromPrivate(privateKey: privateKey);
+      final publicKey = getPublicKeyFromPrivate(privateKey: hexPrivateKey);
       
       // TODO: Save login state
       
@@ -214,9 +224,9 @@ class _LoginPageState extends State<LoginPage> {
             TextField(
               controller: _privateKeyController,
               decoration: const InputDecoration(
-                labelText: 'Private Key (nsec)',
-                hintText: 'nsec1...',
-                helperText: 'Enter your Nostr private key to login',
+                labelText: 'Private Key (nsec or hex)',
+                hintText: 'nsec1... or hex format',
+                helperText: 'Enter your Nostr private key (nsec or hex) to login',
               ),
               obscureText: true,
               maxLines: 1,
