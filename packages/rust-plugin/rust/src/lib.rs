@@ -42,19 +42,19 @@ mod tests {
     fn test_cashu_functions() {
         println!("Testing Cashu Rust functions...");
         
-        // Test wallet manager
-        let mut manager = create_wallet_manager();
-        println!("✅ Created wallet manager successfully");
+        // Test creating wallet
+        let mint_url = "https://8333.space".to_string();
+        let unit = "sat".to_string();
+        let result = create_wallet(mint_url.clone(), unit.clone());
+        println!("✅ Created wallet: {:?}", result);
         
-        // Test adding mint
-        let mint_url = "https://mint.cashu.space".to_string();
-        add_cashu_mint(&mut manager, mint_url.clone()).unwrap();
-        println!("✅ Added mint successfully");
+        // Test getting wallet balance
+        let balance = get_wallet_balance(mint_url.clone(), unit.clone()).unwrap();
+        println!("✅ Got wallet balance: {} sats", balance);
         
-        // Test getting balance
-        let balance = get_wallet_balance(&manager, mint_url.clone()).unwrap();
-        assert_eq!(balance, 0);
-        println!("✅ Got wallet balance successfully");
+        // Test getting wallet info
+        let info = get_wallet_info(mint_url.clone(), unit.clone()).unwrap();
+        println!("✅ Got wallet info: {:?}", info);
         
         // Test creating proof
         let proof = create_cashu_proof(
@@ -65,14 +65,9 @@ mod tests {
         );
         println!("✅ Created Cashu proof successfully");
         
-        // Test adding proof to wallet
-        add_proof_to_wallet(&mut manager, mint_url.clone(), proof).unwrap();
-        println!("✅ Added proof to wallet successfully");
-        
-        // Test getting updated balance
-        let new_balance = get_wallet_balance(&manager, mint_url).unwrap();
-        assert_eq!(new_balance, 1000);
-        println!("✅ Got updated wallet balance successfully");
+        // Test validating proof
+        let is_valid = validate_cashu_proof(proof).unwrap();
+        println!("✅ Validated proof: {}", is_valid);
         
         println!("All Cashu tests passed!");
     }

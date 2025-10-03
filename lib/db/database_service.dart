@@ -2,11 +2,6 @@ import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import '../accounts/models/user.dart';
-import '../wallets/models/proof.dart';
-import '../wallets/models/mint_info.dart';
-import '../wallets/models/keyset_info.dart';
-import '../wallets/models/history_entry.dart';
-import '../wallets/models/invoice.dart';
 
 /// Basic database service for managing Isar database
 class DatabaseService {
@@ -19,11 +14,6 @@ class DatabaseService {
     _isar = await Isar.open(
       [
         UserSchema,
-        ProofSchema,
-        MintInfoSchema,
-        KeysetInfoSchema,
-        HistoryEntrySchema,
-        InvoiceSchema,
       ],
       directory: dir.path,
     );
@@ -67,11 +57,6 @@ class DatabaseService {
         await Isar.open(
           [
             UserSchema,
-            ProofSchema,
-            MintInfoSchema,
-            KeysetInfoSchema,
-            HistoryEntrySchema,
-            InvoiceSchema,
           ],
           directory: dbDir,
           name: dbName,

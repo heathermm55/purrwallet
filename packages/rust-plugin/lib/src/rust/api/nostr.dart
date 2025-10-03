@@ -4,6 +4,7 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+import 'cashu.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `fmt`, `fmt`, `fmt`
@@ -86,6 +87,57 @@ String npubToPublicKey({required String npub}) =>
 /// Generate keys and return both hex and bech32 formats
 NostrKeysWithBech32 generateKeysWithBech32() =>
     RustLib.instance.api.crateApiNostrGenerateKeysWithBech32();
+
+/// NIP-60 Wallet Event functions
+/// Create a NIP-60 wallet event
+String createNip60WalletEvent({
+  required String privkey,
+  required List<String> mints,
+  required String secretKey,
+  required String publicKey,
+}) => RustLib.instance.api.crateApiNostrCreateNip60WalletEvent(
+  privkey: privkey,
+  mints: mints,
+  secretKey: secretKey,
+  publicKey: publicKey,
+);
+
+/// Parse a NIP-60 wallet event
+(String, List<String>) parseNip60WalletEvent({
+  required String eventContent,
+  required String secretKey,
+  required String publicKey,
+}) => RustLib.instance.api.crateApiNostrParseNip60WalletEvent(
+  eventContent: eventContent,
+  secretKey: secretKey,
+  publicKey: publicKey,
+);
+
+/// Create a NIP-60 token event
+String createNip60TokenEvent({
+  required String mintUrl,
+  required List<CashuProof> proofs,
+  required List<String> del,
+  required String secretKey,
+  required String publicKey,
+}) => RustLib.instance.api.crateApiNostrCreateNip60TokenEvent(
+  mintUrl: mintUrl,
+  proofs: proofs,
+  del: del,
+  secretKey: secretKey,
+  publicKey: publicKey,
+);
+
+/// Parse a NIP-60 token event
+(String, List<CashuProof>, List<String>) parseNip60TokenEvent({
+  required String eventContent,
+  required String secretKey,
+  required String publicKey,
+}) => RustLib.instance.api.crateApiNostrParseNip60TokenEvent(
+  eventContent: eventContent,
+  secretKey: secretKey,
+  publicKey: publicKey,
+);
 
 class NostrEvent {
   final String id;

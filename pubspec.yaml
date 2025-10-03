@@ -38,11 +38,11 @@ dependencies:
   rust_plugin:
     path: packages/rust-plugin
   
-  # Database
+  # Database (only for user management)
   isar: ^3.1.0+1
   isar_flutter_libs: ^3.1.0+1
   
-  # Encryption and Security
+  # Encryption and Security (for user private keys)
   flutter_secure_storage: ^9.2.2
   crypto: ^3.0.3
   encrypt: ^5.0.3
@@ -52,9 +52,6 @@ dependencies:
   
   # Path provider for file system access
   path_provider: ^2.1.4
-  
-  # HTTP client for API calls
-  http: ^1.2.2
 
 dev_dependencies:
   flutter_test:

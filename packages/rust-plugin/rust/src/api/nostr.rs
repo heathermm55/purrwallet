@@ -2,6 +2,8 @@ use nostr::key::{Keys, PublicKey, SecretKey};
 use nostr::nips::nip04;
 use nostr::nips::nip44;
 use nostr::nips::nip19::{ToBech32, FromBech32};
+use nostr::nips::nip60::{WalletEvent, TokenEventData};
+use crate::api::cashu::CashuProof;
 use nostr::event::{EventBuilder, EventId, Kind, Tag};
 use nostr::types::time::Timestamp;
 use nostr::secp256k1::schnorr::Signature;
@@ -271,14 +273,6 @@ pub struct NostrKeysWithBech32 {
     pub npub: String,
 }
 
-/// Cashu proof structure for NIP-60
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CashuProof {
-    pub id: String,
-    pub amount: u64,
-    pub secret: String,
-    pub c: String,
-}
 
 /// NIP-60 Wallet Event functions
 /// Create a NIP-60 wallet event

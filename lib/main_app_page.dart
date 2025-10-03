@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:rust_plugin/src/rust/api/cashu.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:math';
+import 'dart:convert';
 
 /// Main app page - Wallet interface
 class MainAppPage extends StatefulWidget {
@@ -11,6 +16,151 @@ class MainAppPage extends StatefulWidget {
 class _MainAppPageState extends State<MainAppPage> {
   final PageController _pageController = PageController();
   int _currentIndex = 0;
+  
+  // Cashu Wallet state
+  WalletInfo? _walletInfo;
+  List<CashuProof> _proofs = [];
+  List<TransactionInfo> _transactions = [];
+  bool _isWalletInitialized = false;
+  String _walletStatus = 'Initializing...';
+  
+  // Secure storage for seed
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  static const String _seedKey = 'cashu_wallet_seed';
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeWallet();
+  }
+
+  /// Generate a new 32-byte seed as hex string
+  String _generateSeedHex() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(32, (i) => random.nextInt(256));
+    return bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
+  }
+
+  /// Get or create seed from secure storage
+  Future<String> _getOrCreateSeed() async {
+    try {
+      // Try to get existing seed
+      final existingSeed = await _secureStorage.read(key: _seedKey);
+      if (existingSeed != null && existingSeed.length == 64) {
+        print('Using existing seed from secure storage');
+        return existingSeed;
+      }
+    } catch (e) {
+      print('Error reading seed from storage: $e');
+    }
+
+    // Generate new seed if none exists or invalid
+    final newSeed = _generateSeedHex();
+    try {
+      await _secureStorage.write(key: _seedKey, value: newSeed);
+      print('Generated and stored new seed');
+    } catch (e) {
+      print('Error storing seed: $e');
+    }
+    
+    return newSeed;
+  }
+
+  Future<void> _initializeWallet() async {
+    try {
+      setState(() {
+        _walletStatus = 'Creating wallet...';
+      });
+
+      // Get application documents directory
+      final documentsDir = await getApplicationDocumentsDirectory();
+      final databaseDir = documentsDir.path;
+
+      // Get or create seed from secure storage
+      final seedHex = await _getOrCreateSeed();
+      print('Using seed: ${seedHex.substring(0, 8)}...');
+
+      // Initialize MultiMintWallet with seed
+      final initResult = initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
+      print('MultiMintWallet init result: $initResult');
+
+      // Load existing wallets from database
+      final loadResult = loadExistingWallets();
+      print('Load existing wallets result: $loadResult');
+
+      // Add default mint if no wallets were loaded
+      const mintUrl = 'https://8333.space'; // Default local mint
+      const unit = 'sat';
+      
+      final addMintResult = addMint(mintUrl: mintUrl, unit: unit);
+      print('Add mint result: $addMintResult');
+
+      // List all mints
+      final mints = listMints();
+      print('Available mints: $mints');
+
+      // Try to get wallet info, but handle errors gracefully
+      WalletInfo? walletInfo;
+      List<CashuProof> proofs = [];
+      List<TransactionInfo> transactions = [];
+      
+      try {
+        walletInfo = getWalletInfo(mintUrl: mintUrl, unit: unit, databaseDir: databaseDir);
+        print('Wallet info: $walletInfo');
+      } catch (e) {
+        print('Failed to get wallet info: $e');
+        // Create a default wallet info
+        walletInfo = WalletInfo(
+          mintUrl: mintUrl,
+          unit: unit,
+          balance: BigInt.zero,
+          activeKeysetId: 'default',
+        );
+      }
+
+      try {
+        proofs = getWalletProofs(mintUrl: mintUrl, unit: unit, databaseDir: databaseDir);
+        print('Proofs: ${proofs.length}');
+      } catch (e) {
+        print('Failed to get proofs: $e');
+        proofs = [];
+      }
+
+      try {
+        transactions = getWalletTransactions(mintUrl: mintUrl, unit: unit, databaseDir: databaseDir);
+        print('Transactions: ${transactions.length}');
+      } catch (e) {
+        print('Failed to get transactions: $e');
+        transactions = [];
+      }
+
+      setState(() {
+        _walletInfo = walletInfo;
+        _proofs = proofs;
+        _transactions = transactions;
+        _isWalletInitialized = true;
+        _walletStatus = 'Wallet ready';
+      });
+    } catch (e) {
+      setState(() {
+        _walletStatus = 'Error: $e';
+        _isWalletInitialized = false;
+      });
+      print('Wallet initialization error: $e');
+    }
+  }
+
+  String _formatBalance(String balance) {
+    try {
+      final amount = int.parse(balance);
+      if (amount >= 1000) {
+        return '${(amount / 1000).toStringAsFixed(1)}k';
+      }
+      return amount.toString();
+    } catch (e) {
+      return '0';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,10 +210,12 @@ class _MainAppPageState extends State<MainAppPage> {
                 itemCount: 3, // Local Wallet, NIP60 Wallet, Add Wallet
                 itemBuilder: (context, index) {
                   if (index == 0) {
+                    final balance = _walletInfo?.balance.toString() ?? '0';
+                    final balanceFormatted = _formatBalance(balance);
                     return _buildWalletCard(
-                      'Local Wallet 01',
-                      '1,000 sats',
-                      '\$0.37',
+                      'Local Wallet',
+                      '$balanceFormatted sats',
+                      '\$0.00', // TODO: Add USD conversion
                       const LinearGradient(
                         colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
                       ),
@@ -201,7 +353,7 @@ class _MainAppPageState extends State<MainAppPage> {
                   child: _buildTransactionItem(index),
                 );
               },
-              childCount: 5, // Match the number of transactions in the array
+                childCount: _transactions.length, // Match the number of transactions in the array
             ),
           ),
           
@@ -329,15 +481,14 @@ class _MainAppPageState extends State<MainAppPage> {
   }
 
   Widget _buildTransactionItem(int index) {
-    final transactions = [
-      {'type': 'Ecash', 'time': '1 hour ago', 'desc': 'Received from user', 'amount': '+1 sat', 'usd': '~\$0.00', 'icon': Icons.arrow_upward, 'color': Colors.green},
-      {'type': 'Lightning', 'time': '2 hours ago', 'desc': 'Payment to merchant', 'amount': '-1 sat', 'usd': '~\$0.00', 'icon': Icons.arrow_downward, 'color': Colors.red},
-      {'type': 'Lightning', 'time': '3 hours ago', 'desc': 'Pending payment', 'amount': '-1 sat', 'usd': '~\$0.00', 'icon': Icons.access_time, 'color': Colors.orange},
-      {'type': 'Ecash', 'time': '1 day ago', 'desc': 'Received from user', 'amount': '+1 sat', 'usd': '~\$0.00', 'icon': Icons.arrow_upward, 'color': Colors.green},
-      {'type': 'Lightning', 'time': '2 days ago', 'desc': 'Payment to merchant', 'amount': '-1 sat', 'usd': '~\$0.00', 'icon': Icons.arrow_downward, 'color': Colors.red},
-    ];
+    if (index >= _transactions.length) {
+      return const SizedBox.shrink();
+    }
     
-    final tx = transactions[index];
+    final tx = _transactions[index];
+    final isReceived = tx.direction == 'in';
+    final time = DateTime.fromMillisecondsSinceEpoch(tx.timestamp.toInt());
+    final timeStr = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
     
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -353,12 +504,12 @@ class _MainAppPageState extends State<MainAppPage> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: (tx['color'] as Color).withOpacity(0.2),
+              color: (isReceived ? Colors.green : Colors.red).withOpacity(0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(
-              tx['icon'] as IconData,
-              color: tx['color'] as Color,
+              isReceived ? Icons.arrow_upward : Icons.arrow_downward,
+              color: isReceived ? Colors.green : Colors.red,
               size: 20,
             ),
           ),
@@ -368,7 +519,7 @@ class _MainAppPageState extends State<MainAppPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  tx['type'] as String,
+                  tx.memo ?? (isReceived ? 'Received' : 'Sent'),
                   style: const TextStyle(
                     color: Color(0xFF00FF00),
                     fontFamily: 'Courier',
@@ -376,7 +527,7 @@ class _MainAppPageState extends State<MainAppPage> {
                   ),
                 ),
                 Text(
-                  tx['desc'] as String,
+                  'Cashu Transaction',
                   style: const TextStyle(
                     color: Color(0xFF666666),
                     fontFamily: 'Courier',
@@ -384,7 +535,7 @@ class _MainAppPageState extends State<MainAppPage> {
                   ),
                 ),
                 Text(
-                  tx['time'] as String,
+                  timeStr,
                   style: const TextStyle(
                     color: Color(0xFF666666),
                     fontFamily: 'Courier',
@@ -398,16 +549,16 @@ class _MainAppPageState extends State<MainAppPage> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                tx['amount'] as String,
+                '${isReceived ? '+' : '-'}${tx.amount} sats',
                 style: TextStyle(
-                  color: tx['color'] as Color,
+                  color: isReceived ? Colors.green : Colors.red,
                   fontFamily: 'Courier',
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              Text(
-                tx['usd'] as String,
-                style: const TextStyle(
+              const Text(
+                '~\$0.00',
+                style: TextStyle(
                   color: Color(0xFF666666),
                   fontFamily: 'Courier',
                   fontSize: 10,
@@ -420,25 +571,28 @@ class _MainAppPageState extends State<MainAppPage> {
     );
   }
 
-  Widget _buildBottomNavButton(String label, IconData icon) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(
-          icon,
-          color: const Color(0xFF00FF00),
-          size: 24,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFF00FF00),
-            fontFamily: 'Courier',
-            fontSize: 10,
+  Widget _buildBottomNavButton(String label, IconData icon, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            color: const Color(0xFF00FF00),
+            size: 24,
           ),
-        ),
-      ],
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

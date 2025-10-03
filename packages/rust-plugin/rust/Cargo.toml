@@ -15,8 +15,11 @@ base64 = "0.22"
 anyhow = "1.0"
 thiserror = "2.0.17"
 url = "2.5.7"
+tokio = { version = "1.0", features = ["full"] }
+rand = "0.8"
 
 # Local dependencies - use local nostr and cdk
 nostr = { path = "../../../../nostr/crates/nostr", features = ["nip04", "nip44", "nip60"] }
-cdk = { path = "../../../../cdk/crates/cdk" }
+cdk = { path = "../../../../cdk/crates/cdk", features = ["wallet"] }
+cdk-sqlite = { path = "../../../../cdk/crates/cdk-sqlite", features = ["wallet"] }
 cashu = { path = "../../../../cdk/crates/cashu" }
