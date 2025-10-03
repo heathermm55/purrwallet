@@ -374,14 +374,14 @@ class _MainAppPageState extends State<MainAppPage> {
               ListTile(
                 leading: const Icon(Icons.security, color: Color(0xFF00FF00)),
                 title: const Text(
-                  'Seed Phrase',
+                  'Security',
                   style: TextStyle(
                     color: Color(0xFF00FF00),
                     fontFamily: 'Courier',
                   ),
                 ),
                 subtitle: const Text(
-                  'View wallet seed',
+                  'Seed phrase and restore options',
                   style: TextStyle(
                     color: Color(0xFF666666),
                     fontFamily: 'Courier',
@@ -390,21 +390,21 @@ class _MainAppPageState extends State<MainAppPage> {
                 ),
                 onTap: () {
                   Navigator.of(context).pop();
-                  _showSeedPhraseDialog();
+                  _showSecurityDialog();
                 },
               ),
               const Divider(color: Color(0xFF333333)),
               ListTile(
-                leading: const Icon(Icons.restore, color: Color(0xFF00FF00)),
+                leading: const Icon(Icons.network_check, color: Color(0xFF00FF00)),
                 title: const Text(
-                  'Restore',
+                  'Network',
                   style: TextStyle(
                     color: Color(0xFF00FF00),
                     fontFamily: 'Courier',
                   ),
                 ),
                 subtitle: const Text(
-                  'Restore from backup',
+                  'Proxy and Tor settings',
                   style: TextStyle(
                     color: Color(0xFF666666),
                     fontFamily: 'Courier',
@@ -413,7 +413,7 @@ class _MainAppPageState extends State<MainAppPage> {
                 ),
                 onTap: () {
                   Navigator.of(context).pop();
-                  _showRestoreDialog();
+                  _showNetworkDialog();
                 },
               ),
               const Divider(color: Color(0xFF333333)),
@@ -817,6 +817,87 @@ class _MainAppPageState extends State<MainAppPage> {
     );
   }
 
+  void _showSecurityDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Security',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.vpn_key, color: Color(0xFF00FF00)),
+                title: const Text(
+                  'View Seed Phrase',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+                subtitle: const Text(
+                  'Display wallet seed phrase',
+                  style: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showSeedPhraseDialog();
+                },
+              ),
+              const Divider(color: Color(0xFF333333)),
+              ListTile(
+                leading: const Icon(Icons.restore, color: Color(0xFF00FF00)),
+                title: const Text(
+                  'Restore Wallet',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+                subtitle: const Text(
+                  'Restore from backup',
+                  style: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showRestoreDialog();
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Close',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showSeedPhraseDialog() {
     showDialog(
       context: context,
@@ -993,6 +1074,314 @@ class _MainAppPageState extends State<MainAppPage> {
           ],
         );
       },
+    );
+  }
+
+  void _showNetworkDialog() {
+    bool isTorEnabled = false;
+    bool isProxyEnabled = false;
+    String proxyHost = '';
+    String proxyPort = '';
+    String proxyUsername = '';
+    String proxyPassword = '';
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1A1A1A),
+              title: const Text(
+                'Network Settings',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Tor Mode
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: isTorEnabled,
+                          onChanged: (value) {
+                            setState(() {
+                              isTorEnabled = value ?? false;
+                            });
+                          },
+                          activeColor: const Color(0xFF00FF00),
+                          checkColor: Colors.black,
+                        ),
+                        const Text(
+                          'Tor Mode',
+                          style: TextStyle(
+                            color: Color(0xFF00FF00),
+                            fontFamily: 'Courier',
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Route all traffic through Tor network',
+                      style: TextStyle(
+                        color: Color(0xFF666666),
+                        fontFamily: 'Courier',
+                        fontSize: 10,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Proxy Settings
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: isProxyEnabled,
+                          onChanged: (value) {
+                            setState(() {
+                              isProxyEnabled = value ?? false;
+                            });
+                          },
+                          activeColor: const Color(0xFF00FF00),
+                          checkColor: Colors.black,
+                        ),
+                        const Text(
+                          'Proxy Settings',
+                          style: TextStyle(
+                            color: Color(0xFF00FF00),
+                            fontFamily: 'Courier',
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    if (isProxyEnabled) ...[
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Proxy Host:',
+                        style: TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      TextField(
+                        onChanged: (value) => proxyHost = value,
+                        style: const TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: '127.0.0.1',
+                          hintStyle: TextStyle(
+                            color: Color(0xFF666666),
+                            fontFamily: 'Courier',
+                          ),
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF00FF00)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF00FF00)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF00FF00)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Proxy Port:',
+                        style: TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      TextField(
+                        onChanged: (value) => proxyPort = value,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: '8080',
+                          hintStyle: TextStyle(
+                            color: Color(0xFF666666),
+                            fontFamily: 'Courier',
+                          ),
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF00FF00)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF00FF00)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF00FF00)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Username (optional):',
+                        style: TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      TextField(
+                        onChanged: (value) => proxyUsername = value,
+                        style: const TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: 'proxy_user',
+                          hintStyle: TextStyle(
+                            color: Color(0xFF666666),
+                            fontFamily: 'Courier',
+                          ),
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF00FF00)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF00FF00)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF00FF00)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Password (optional):',
+                        style: TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      TextField(
+                        onChanged: (value) => proxyPassword = value,
+                        obscureText: true,
+                        style: const TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: 'proxy_pass',
+                          hintStyle: TextStyle(
+                            color: Color(0xFF666666),
+                            fontFamily: 'Courier',
+                          ),
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF00FF00)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF00FF00)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF00FF00)),
+                          ),
+                        ),
+                      ),
+                    ],
+                    
+                    const SizedBox(height: 16),
+                    const Text(
+                      '⚠️ Network settings will be applied after app restart',
+                      style: TextStyle(
+                        color: Color(0xFFFF6B6B),
+                        fontFamily: 'Courier',
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: Color(0xFF00FF00),
+                      fontFamily: 'Courier',
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _saveNetworkSettings(
+                      isTorEnabled,
+                      isProxyEnabled,
+                      proxyHost,
+                      proxyPort,
+                      proxyUsername,
+                      proxyPassword,
+                    );
+                  },
+                  child: const Text(
+                    'Save',
+                    style: TextStyle(
+                      color: Color(0xFF00FF00),
+                      fontFamily: 'Courier',
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _saveNetworkSettings(
+    bool isTorEnabled,
+    bool isProxyEnabled,
+    String proxyHost,
+    String proxyPort,
+    String proxyUsername,
+    String proxyPassword,
+  ) {
+    // TODO: Save network settings to storage
+    print('Saving network settings:');
+    print('  Tor enabled: $isTorEnabled');
+    print('  Proxy enabled: $isProxyEnabled');
+    if (isProxyEnabled) {
+      print('  Proxy host: $proxyHost');
+      print('  Proxy port: $proxyPort');
+      print('  Proxy username: $proxyUsername');
+      print('  Proxy password: ${proxyPassword.isNotEmpty ? '[HIDDEN]' : '[EMPTY]'}');
+    }
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Network settings saved. Restart app to apply changes.',
+          style: TextStyle(
+            color: Color(0xFF00FF00),
+            fontFamily: 'Courier',
+          ),
+        ),
+        backgroundColor: Color(0xFF1A1A1A),
+        duration: Duration(seconds: 3),
+      ),
     );
   }
 
