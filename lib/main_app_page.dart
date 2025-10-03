@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:rust_plugin/src/rust/api/cashu.dart';
+import 'package:rust_plugin/src/rust/api/nostr.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'accounts/services/auth_service.dart';
+import 'accounts/services/user_service.dart';
 import 'dart:math';
-import 'dart:convert';
 
 /// Main app page - Wallet interface
 class MainAppPage extends StatefulWidget {
@@ -14,15 +16,10 @@ class MainAppPage extends StatefulWidget {
 }
 
 class _MainAppPageState extends State<MainAppPage> {
-  final PageController _pageController = PageController();
-  int _currentIndex = 0;
   
   // Cashu Wallet state
   WalletInfo? _walletInfo;
-  List<CashuProof> _proofs = [];
   List<TransactionInfo> _transactions = [];
-  bool _isWalletInitialized = false;
-  String _walletStatus = 'Initializing...';
   
   // Secure storage for seed
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
@@ -68,9 +65,6 @@ class _MainAppPageState extends State<MainAppPage> {
 
   Future<void> _initializeWallet() async {
     try {
-      setState(() {
-        _walletStatus = 'Creating wallet...';
-      });
 
       // Get application documents directory
       final documentsDir = await getApplicationDocumentsDirectory();
@@ -84,24 +78,15 @@ class _MainAppPageState extends State<MainAppPage> {
       final initResult = initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
       print('MultiMintWallet init result: $initResult');
 
-      // Load existing wallets from database
-      final loadResult = loadExistingWallets();
-      print('Load existing wallets result: $loadResult');
-
-      // Add default mint if no wallets were loaded
+      // Add default local mint
       const mintUrl = 'https://8333.space'; // Default local mint
       const unit = 'sat';
       
       final addMintResult = addMint(mintUrl: mintUrl, unit: unit);
       print('Add mint result: $addMintResult');
 
-      // List all mints
-      final mints = listMints();
-      print('Available mints: $mints');
-
       // Try to get wallet info, but handle errors gracefully
       WalletInfo? walletInfo;
-      List<CashuProof> proofs = [];
       List<TransactionInfo> transactions = [];
       
       try {
@@ -118,13 +103,6 @@ class _MainAppPageState extends State<MainAppPage> {
         );
       }
 
-      try {
-        proofs = getWalletProofs(mintUrl: mintUrl, unit: unit, databaseDir: databaseDir);
-        print('Proofs: ${proofs.length}');
-      } catch (e) {
-        print('Failed to get proofs: $e');
-        proofs = [];
-      }
 
       try {
         transactions = getWalletTransactions(mintUrl: mintUrl, unit: unit, databaseDir: databaseDir);
@@ -136,16 +114,9 @@ class _MainAppPageState extends State<MainAppPage> {
 
       setState(() {
         _walletInfo = walletInfo;
-        _proofs = proofs;
         _transactions = transactions;
-        _isWalletInitialized = true;
-        _walletStatus = 'Wallet ready';
       });
     } catch (e) {
-      setState(() {
-        _walletStatus = 'Error: $e';
-        _isWalletInitialized = false;
-      });
       print('Wallet initialization error: $e');
     }
   }
@@ -162,13 +133,998 @@ class _MainAppPageState extends State<MainAppPage> {
     }
   }
 
+  Widget _buildUserAvatar() {
+    return const Padding(
+      padding: EdgeInsets.all(8.0),
+      child: Icon(
+        Icons.person,
+        color: Color(0xFF00FF00),
+        size: 24,
+      ),
+    );
+  }
+
+  void _showAccountMenuDialog() {
+    final currentUser = AuthService.currentUser;
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Account',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (currentUser != null) ...[
+                ListTile(
+                  leading: const Icon(Icons.person, color: Color(0xFF00FF00)),
+                  title: const Text(
+                    'Account Info',
+                    style: TextStyle(
+                      color: Color(0xFF00FF00),
+                      fontFamily: 'Courier',
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _showAccountInfoDialog();
+                  },
+                ),
+                const Divider(color: Color(0xFF333333)),
+              ],
+              ListTile(
+                leading: const Icon(Icons.logout, color: Color(0xFF00FF00)),
+                title: const Text(
+                  'Logout',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  AuthService.logout();
+                  Navigator.of(context).pushReplacementNamed('/');
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAccountInfoDialog() {
+    final currentUser = AuthService.currentUser;
+    if (currentUser == null) return;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Account Info',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Public Key (npub):',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SelectableText(
+                currentUser.npub,
+                style: const TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Private Key (nsec):',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              FutureBuilder<String?>(
+                future: _getNsec(currentUser),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Text(
+                      'Loading...',
+                      style: TextStyle(
+                        color: Color(0xFF666666),
+                        fontFamily: 'Courier',
+                        fontSize: 12,
+                      ),
+                    );
+                  } else if (snapshot.hasData && snapshot.data != null) {
+                    return SelectableText(
+                      snapshot.data!,
+                      style: const TextStyle(
+                        color: Color(0xFF666666),
+                        fontFamily: 'Courier',
+                        fontSize: 12,
+                      ),
+                    );
+                  } else {
+                    return const Text(
+                      'Unable to decrypt private key',
+                      style: TextStyle(
+                        color: Color(0xFF666666),
+                        fontFamily: 'Courier',
+                        fontSize: 12,
+                      ),
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Login Type:',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                currentUser.loginType.name.toUpperCase(),
+                style: const TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Close',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<String?> _getNsec(currentUser) async {
+    try {
+      final password = await UserService.getEncryptionPassword(currentUser.publicKey);
+      if (password == null) return null;
+      
+      final decryptedPrivateKey = UserService.decryptPrivateKey(currentUser.encryptedPrivateKey, password);
+      return secretKeyToNsec(secretKey: decryptedPrivateKey);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  void _showMenuDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Settings',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.account_balance_wallet, color: Color(0xFF00FF00)),
+                title: const Text(
+                  'Mints',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+                subtitle: const Text(
+                  'Manage mint servers',
+                  style: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showMintsDialog();
+                },
+              ),
+              const Divider(color: Color(0xFF333333)),
+              ListTile(
+                leading: const Icon(Icons.security, color: Color(0xFF00FF00)),
+                title: const Text(
+                  'Seed Phrase',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+                subtitle: const Text(
+                  'View wallet seed',
+                  style: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showSeedPhraseDialog();
+                },
+              ),
+              const Divider(color: Color(0xFF333333)),
+              ListTile(
+                leading: const Icon(Icons.restore, color: Color(0xFF00FF00)),
+                title: const Text(
+                  'Restore',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+                subtitle: const Text(
+                  'Restore from backup',
+                  style: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showRestoreDialog();
+                },
+              ),
+              const Divider(color: Color(0xFF333333)),
+              ListTile(
+                leading: const Icon(Icons.info, color: Color(0xFF00FF00)),
+                title: const Text(
+                  'About',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+                subtitle: const Text(
+                  'App information',
+                  style: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showAboutDialog();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showMintsDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Mints',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Current Mints:',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showMintDetailDialog('https://8333.space', 'Local');
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Color(0xFF00FF00)),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.account_balance_wallet, color: Color(0xFF00FF00), size: 16),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Local Mint',
+                          style: TextStyle(
+                            color: Color(0xFF00FF00),
+                            fontFamily: 'Courier',
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios, color: Color(0xFF666666), size: 12),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Add new mint:',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+                decoration: const InputDecoration(
+                  hintText: 'Enter mint URL',
+                  hintStyle: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                  ),
+                  border: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Close',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // TODO: Add mint functionality
+              },
+              child: const Text(
+                'Add',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showMintDetailDialog(String mintUrl, String alias) {
+    final TextEditingController aliasController = TextEditingController(text: alias);
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Mint Details',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Mint URL:',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SelectableText(
+                mintUrl,
+                style: const TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Alias:',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: aliasController,
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+                decoration: const InputDecoration(
+                  hintText: 'Enter alias for this mint',
+                  hintStyle: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                  ),
+                  border: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _showDeleteMintConfirmation(mintUrl, aliasController.text);
+                      },
+                      icon: const Icon(Icons.delete, color: Color(0xFFFF6B6B), size: 16),
+                      label: const Text(
+                        'Delete',
+                        style: TextStyle(
+                          color: Color(0xFFFF6B6B),
+                          fontFamily: 'Courier',
+                          fontSize: 12,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1A1A1A),
+                        side: const BorderSide(color: Color(0xFFFF6B6B)),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _updateMintAlias(mintUrl, aliasController.text);
+              },
+              child: const Text(
+                'Save',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showDeleteMintConfirmation(String mintUrl, String alias) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Delete Mint',
+            style: TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Are you sure you want to delete this mint?',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Alias: $alias',
+                style: const TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 12,
+                ),
+              ),
+              Text(
+                'URL: $mintUrl',
+                style: const TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '⚠️ This action cannot be undone!',
+                style: TextStyle(
+                  color: Color(0xFFFF6B6B),
+                  fontFamily: 'Courier',
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteMint(mintUrl);
+              },
+              child: const Text(
+                'Delete',
+                style: TextStyle(
+                  color: Color(0xFFFF6B6B),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _updateMintAlias(String mintUrl, String newAlias) {
+    // TODO: Update mint alias in storage
+    print('Updating mint alias: $mintUrl -> $newAlias');
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Mint alias updated to: $newAlias',
+          style: const TextStyle(
+            color: Color(0xFF00FF00),
+            fontFamily: 'Courier',
+          ),
+        ),
+        backgroundColor: const Color(0xFF1A1A1A),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _deleteMint(String mintUrl) {
+    // TODO: Delete mint from storage
+    print('Deleting mint: $mintUrl');
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Mint deleted: $mintUrl',
+          style: const TextStyle(
+            color: Color(0xFF00FF00),
+            fontFamily: 'Courier',
+          ),
+        ),
+        backgroundColor: const Color(0xFF1A1A1A),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showSeedPhraseDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Seed Phrase',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Your wallet seed phrase:',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              FutureBuilder<String>(
+                future: _getSeedHex(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Text(
+                      'Loading...',
+                      style: TextStyle(
+                        color: Color(0xFF666666),
+                        fontFamily: 'Courier',
+                        fontSize: 12,
+                      ),
+                    );
+                  } else if (snapshot.hasData) {
+                    return SelectableText(
+                      snapshot.data!,
+                      style: const TextStyle(
+                        color: Color(0xFF666666),
+                        fontFamily: 'Courier',
+                        fontSize: 12,
+                      ),
+                    );
+                  } else {
+                    return const Text(
+                      'Unable to load seed',
+                      style: TextStyle(
+                        color: Color(0xFF666666),
+                        fontFamily: 'Courier',
+                        fontSize: 12,
+                      ),
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '⚠️ Keep this seed phrase secure!',
+                style: TextStyle(
+                  color: Color(0xFFFF6B6B),
+                  fontFamily: 'Courier',
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Close',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showRestoreDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Restore Wallet',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Enter your seed phrase:',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Paste your seed phrase here...',
+                  hintStyle: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                  ),
+                  border: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'This will restore your wallet from backup.',
+                style: TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // TODO: Restore wallet functionality
+              },
+              child: const Text(
+                'Restore',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showAboutDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'About PurrWallet',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'PurrWallet v1.0.0',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Cross-platform ecash wallet',
+                style: TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Built with Flutter & Rust',
+                style: TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'IRC-style interface',
+                style: TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Features:',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                '• Nostr account integration',
+                style: TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 10,
+                ),
+              ),
+              const Text(
+                '• Cashu wallet support',
+                style: TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 10,
+                ),
+              ),
+              const Text(
+                '• Multi-mint support',
+                style: TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 10,
+                ),
+              ),
+              const Text(
+                '• Secure key storage',
+                style: TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Close',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<String> _getSeedHex() async {
+    try {
+      return await _secureStorage.read(key: _seedKey) ?? 'No seed found';
+    } catch (e) {
+      return 'Error loading seed';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         title: const Text(
-          'WALLET',
+          'PURRWALLET',
           style: TextStyle(
             color: Color(0xFF00FF00),
             fontFamily: 'Courier',
@@ -177,19 +1133,16 @@ class _MainAppPageState extends State<MainAppPage> {
         ),
         backgroundColor: const Color(0xFF1A1A1A),
         automaticallyImplyLeading: false,
+        leading: GestureDetector(
+          onTap: () {
+            _showAccountMenuDialog();
+          },
+          child: _buildUserAvatar(),
+        ),
         actions: [
           IconButton(
             onPressed: () {
-              // TODO: Add wallet functionality
-            },
-            icon: const Icon(
-              Icons.add,
-              color: Color(0xFF00FF00),
-            ),
-          ),
-          IconButton(
-            onPressed: () {
-              // TODO: Settings functionality
+              _showMenuDialog();
             },
             icon: const Icon(
               Icons.more_vert,
@@ -205,104 +1158,16 @@ class _MainAppPageState extends State<MainAppPage> {
             child: Container(
               height: 200,
               padding: const EdgeInsets.all(16),
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: 3, // Local Wallet, NIP60 Wallet, Add Wallet
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    final balance = _walletInfo?.balance.toString() ?? '0';
-                    final balanceFormatted = _formatBalance(balance);
-                    return _buildWalletCard(
-                      'Local Wallet',
-                      '$balanceFormatted sats',
-                      '\$0.00', // TODO: Add USD conversion
-                      const LinearGradient(
-                        colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
-                      ),
-                      Icons.flash_on,
-                    );
-                  } else if (index == 1) {
-                    return _buildWalletCard(
-                      'NIP60 Wallet 01',
-                      '1,000 sats',
-                      '\$0.37',
-                      const LinearGradient(
-                        colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
-                      ),
-                      Icons.flash_on,
-                    );
-                  } else {
-                    return _buildAddWalletCard();
-                  }
-                },
+              child: _buildWalletCard(
+                'Local Wallet',
+                _walletInfo != null ? '${_formatBalance(_walletInfo!.balance.toString())} sats' : '0 sats',
+                null, // No USD display
+                const LinearGradient(
+                  colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
+                ),
+                Icons.flash_on,
               ),
             ),
-          ),
-          
-          // Page indicators
-          SliverToBoxAdapter(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(3, (index) {
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _currentIndex == index
-                        ? const Color(0xFF00FF00)
-                        : const Color(0xFF333333),
-                  ),
-                );
-              }),
-            ),
-          ),
-          
-          SliverToBoxAdapter(
-            child: const SizedBox(height: 20),
-          ),
-          
-          // Notification Banner
-          SliverToBoxAdapter(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A),
-                border: Border.all(color: const Color(0xFF00FF00)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.bolt,
-                    color: Color(0xFF00FF00),
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'You have 3 nuts zaps to Claim',
-                      style: TextStyle(
-                        color: Color(0xFF00FF00),
-                        fontFamily: 'Courier',
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.arrow_forward_ios,
-                    color: Color(0xFF00FF00),
-                    size: 16,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          SliverToBoxAdapter(
-            child: const SizedBox(height: 20),
           ),
           
           // Transaction History Section
@@ -374,17 +1239,16 @@ class _MainAppPageState extends State<MainAppPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _buildBottomNavButton('Receive', Icons.keyboard_arrow_down),
-            _buildBottomNavButton('Scan', Icons.qr_code_scanner),
-            _buildBottomNavButton('Swap', Icons.swap_horiz),
-            _buildBottomNavButton('Send', Icons.keyboard_arrow_up),
+            _buildBottomNavButton('Receive', Icons.keyboard_arrow_down, onTap: _showReceiveOptions),
+            _buildBottomNavButton('Scan', Icons.qr_code_scanner, onTap: _showScanDialog),
+            _buildBottomNavButton('Send', Icons.keyboard_arrow_up, onTap: _showSendOptions),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildWalletCard(String title, String sats, String usd, Gradient gradient, IconData icon) {
+  Widget _buildWalletCard(String title, String sats, String? usd, Gradient gradient, IconData icon) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       padding: const EdgeInsets.all(20),
@@ -424,61 +1288,20 @@ class _MainAppPageState extends State<MainAppPage> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          Text(
-            usd,
-            style: const TextStyle(
-              color: Color(0xFF666666),
-              fontFamily: 'Courier',
-              fontSize: 14,
+          if (usd != null)
+            Text(
+              usd,
+              style: const TextStyle(
+                color: Color(0xFF666666),
+                fontFamily: 'Courier',
+                fontSize: 14,
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildAddWalletCard() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF333333),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF00FF00)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.add,
-            color: Color(0xFF00FF00),
-            size: 40,
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Add Wallet',
-            style: TextStyle(
-              color: Color(0xFF00FF00),
-              fontFamily: 'Courier',
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            "It's free, and you can create as many as you like",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Color(0xFF666666),
-              fontFamily: 'Courier',
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildTransactionItem(int index) {
     if (index >= _transactions.length) {
@@ -504,7 +1327,7 @@ class _MainAppPageState extends State<MainAppPage> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: (isReceived ? Colors.green : Colors.red).withOpacity(0.2),
+              color: (isReceived ? Colors.green : Colors.red).withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -592,6 +1415,1382 @@ class _MainAppPageState extends State<MainAppPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showReceiveOptions() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Receive',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.content_paste, color: Color(0xFF00FF00)),
+                title: const Text(
+                  'Ecash',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+                subtitle: const Text(
+                  'Paste Cashu token from clipboard',
+                  style: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showEcashReceiveDialog();
+                },
+              ),
+              const Divider(color: Color(0xFF333333)),
+              ListTile(
+                leading: const Icon(Icons.flash_on, color: Color(0xFF00FF00)),
+                title: const Text(
+                  'Lightning',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+                subtitle: const Text(
+                  'Receive ecash by paying a lightning invoice',
+                  style: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showLightningReceiveDialog();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showEcashReceiveDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Receive Ecash',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Paste Cashu token from clipboard:',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  hintText: 'Paste your Cashu token here...',
+                  hintStyle: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                  ),
+                  border: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        // TODO: Paste from clipboard
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Paste from clipboard functionality coming soon',
+                              style: TextStyle(
+                                color: Color(0xFF00FF00),
+                                fontFamily: 'Courier',
+                              ),
+                            ),
+                            backgroundColor: Color(0xFF1A1A1A),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.content_paste, color: Color(0xFF00FF00), size: 16),
+                      label: const Text(
+                        'Paste',
+                        style: TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                          fontSize: 12,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1A1A1A),
+                        side: const BorderSide(color: Color(0xFF00FF00)),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // TODO: Process ecash token
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Ecash token processing coming soon',
+                      style: TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                      ),
+                    ),
+                    backgroundColor: Color(0xFF1A1A1A),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: const Text(
+                'Receive',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showLightningReceiveDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Receive via Lightning',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Enter amount to receive:',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  hintText: 'Enter amount in sats',
+                  hintStyle: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                  ),
+                  border: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'This will create a lightning invoice that you can pay to receive ecash tokens.',
+                style: TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // TODO: Create lightning invoice
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Lightning invoice creation coming soon',
+                      style: TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                      ),
+                    ),
+                    backgroundColor: Color(0xFF1A1A1A),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: const Text(
+                'Create Invoice',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showScanDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Scan QR Code',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.qr_code_scanner,
+                color: Color(0xFF00FF00),
+                size: 64,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Scan QR Code',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Scan a Cashu token or Lightning invoice',
+                style: TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _startQRScanner();
+                      },
+                      icon: const Icon(Icons.qr_code_scanner, color: Color(0xFF00FF00), size: 16),
+                      label: const Text(
+                        'Start Scanner',
+                        style: TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                          fontSize: 12,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1A1A1A),
+                        side: const BorderSide(color: Color(0xFF00FF00)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _showManualInputDialog();
+                      },
+                      icon: const Icon(Icons.keyboard, color: Color(0xFF00FF00), size: 16),
+                      label: const Text(
+                        'Manual Input',
+                        style: TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                          fontSize: 12,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1A1A1A),
+                        side: const BorderSide(color: Color(0xFF00FF00)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _startQRScanner() {
+    // TODO: Implement QR scanner using camera
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'QR Scanner functionality coming soon',
+          style: TextStyle(
+            color: Color(0xFF00FF00),
+            fontFamily: 'Courier',
+          ),
+        ),
+        backgroundColor: Color(0xFF1A1A1A),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showManualInputDialog() {
+    final TextEditingController controller = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Manual Input',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Enter QR code content:',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller,
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  hintText: 'Paste Cashu token or Lightning invoice...',
+                  hintStyle: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                  ),
+                  border: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        // TODO: Paste from clipboard
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Paste from clipboard functionality coming soon',
+                              style: TextStyle(
+                                color: Color(0xFF00FF00),
+                                fontFamily: 'Courier',
+                              ),
+                            ),
+                            backgroundColor: Color(0xFF1A1A1A),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.content_paste, color: Color(0xFF00FF00), size: 16),
+                      label: const Text(
+                        'Paste',
+                        style: TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                          fontSize: 12,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1A1A1A),
+                        side: const BorderSide(color: Color(0xFF00FF00)),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _processScannedContent(controller.text);
+              },
+              child: const Text(
+                'Process',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _processScannedContent(String content) {
+    if (content.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please enter content to process',
+            style: TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: Color(0xFF1A1A1A),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // TODO: Process scanned content (Cashu token or Lightning invoice)
+    print('Processing scanned content: ${content.substring(0, content.length > 50 ? 50 : content.length)}...');
+    
+    // Determine content type and process accordingly
+    if (content.startsWith('cashuA') || content.startsWith('cashu1')) {
+      // Cashu token
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Processing Cashu token...',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: Color(0xFF1A1A1A),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } else if (content.startsWith('lnbc') || content.startsWith('lightning:')) {
+      // Lightning invoice
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Processing Lightning invoice...',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: Color(0xFF1A1A1A),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } else {
+      // Unknown format
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Unknown content format',
+            style: TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: Color(0xFF1A1A1A),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _showSendOptions() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Send',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.send, color: Color(0xFF00FF00)),
+                title: const Text(
+                  'Ecash',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+                subtitle: const Text(
+                  'Create Cashu token and share',
+                  style: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showEcashSendDialog();
+                },
+              ),
+              const Divider(color: Color(0xFF333333)),
+              ListTile(
+                leading: const Icon(Icons.flash_on, color: Color(0xFF00FF00)),
+                title: const Text(
+                  'Lightning',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+                subtitle: const Text(
+                  'Withdraw funds by paying invoice',
+                  style: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showLightningSendDialog();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showEcashSendDialog() {
+    final TextEditingController amountController = TextEditingController();
+    final TextEditingController memoController = TextEditingController();
+    String selectedMint = 'https://8333.space';
+    String selectedMintAlias = 'Local Mint';
+    bool isP2PKEnabled = false;
+    String? p2pkPubkey;
+    String? p2pkSigFlags;
+    String? p2pkNSig;
+    String? p2pkLockTime;
+    String? p2pkRefund;
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1A1A1A),
+              title: const Text(
+                'Send Ecash',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Selected Mint
+                    const Text(
+                      'Selected Mint:',
+                      style: TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _showMintSelectionDialog((mintUrl, alias) {
+                          selectedMint = mintUrl;
+                          selectedMintAlias = alias;
+                          _showEcashSendDialog();
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A2A2A),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Color(0xFF00FF00)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.star, color: Color(0xFF00FF00), size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    selectedMintAlias,
+                                    style: const TextStyle(
+                                      color: Color(0xFF00FF00),
+                                      fontFamily: 'Courier',
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  Text(
+                                    selectedMint,
+                                    style: const TextStyle(
+                                      color: Color(0xFF666666),
+                                      fontFamily: 'Courier',
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.arrow_forward_ios, color: Color(0xFF666666), size: 12),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Amount
+                    const Text(
+                      'Sats Amount:',
+                      style: TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: amountController,
+                      style: const TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                        fontSize: 18,
+                      ),
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        hintText: '0',
+                        hintStyle: TextStyle(
+                          color: Color(0xFF666666),
+                          fontFamily: 'Courier',
+                        ),
+                        border: OutlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF00FF00)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF00FF00)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF00FF00)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Description
+                    const Text(
+                      'Description:',
+                      style: TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: memoController,
+                      style: const TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: 'This is Description',
+                        hintStyle: TextStyle(
+                          color: Color(0xFF666666),
+                          fontFamily: 'Courier',
+                        ),
+                        border: OutlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF00FF00)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF00FF00)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF00FF00)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // P2PK Options
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: isP2PKEnabled,
+                          onChanged: (value) {
+                            setState(() {
+                              isP2PKEnabled = value ?? false;
+                            });
+                          },
+                          activeColor: const Color(0xFF00FF00),
+                          checkColor: Colors.black,
+                        ),
+                        const Text(
+                          'P2PK',
+                          style: TextStyle(
+                            color: Color(0xFF00FF00),
+                            fontFamily: 'Courier',
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    if (isP2PKEnabled) ...[
+                      const SizedBox(height: 8),
+                      _buildP2PKOption('Pubkey', p2pkPubkey, (value) => p2pkPubkey = value),
+                      const SizedBox(height: 8),
+                      _buildP2PKOption('SigFlags', p2pkSigFlags, (value) => p2pkSigFlags = value),
+                      const SizedBox(height: 8),
+                      _buildP2PKOption('N_sig', p2pkNSig, (value) => p2pkNSig = value),
+                      const SizedBox(height: 8),
+                      _buildP2PKOption('LockTime', p2pkLockTime, (value) => p2pkLockTime = value),
+                      const SizedBox(height: 8),
+                      _buildP2PKOption('Refund', p2pkRefund, (value) => p2pkRefund = value),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: Color(0xFF00FF00),
+                      fontFamily: 'Courier',
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _createEcashToken(
+                      amountController.text,
+                      memoController.text,
+                      selectedMint,
+                      isP2PKEnabled,
+                      p2pkPubkey,
+                      p2pkSigFlags,
+                      p2pkNSig,
+                      p2pkLockTime,
+                      p2pkRefund,
+                    );
+                  },
+                  child: const Text(
+                    'Continue',
+                    style: TextStyle(
+                      color: Color(0xFF00FF00),
+                      fontFamily: 'Courier',
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildP2PKOption(String label, String? value, Function(String?) onChanged) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).pop();
+        _showP2PKOptionDialog(label, value ?? 'None', onChanged);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2A2A2A),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Color(0xFF00FF00)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            Text(
+              value ?? 'None',
+              style: const TextStyle(
+                color: Color(0xFF666666),
+                fontFamily: 'Courier',
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.arrow_forward_ios, color: Color(0xFF666666), size: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showMintSelectionDialog(Function(String, String) onMintSelected) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Select Mint',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.account_balance_wallet, color: Color(0xFF00FF00)),
+                title: const Text(
+                  'Local Mint',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+                subtitle: const Text(
+                  'https://8333.space',
+                  style: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onMintSelected('https://8333.space', 'Local Mint');
+                },
+              ),
+              const Divider(color: Color(0xFF333333)),
+              ListTile(
+                leading: const Icon(Icons.add, color: Color(0xFF00FF00)),
+                title: const Text(
+                  'Add New Mint',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+                subtitle: const Text(
+                  'Add a custom mint server',
+                  style: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  // TODO: Show add mint dialog
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Add mint functionality coming soon',
+                        style: TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                        ),
+                      ),
+                      backgroundColor: Color(0xFF1A1A1A),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showP2PKOptionDialog(String label, String currentValue, Function(String?) onChanged) {
+    final TextEditingController controller = TextEditingController(text: currentValue == 'None' ? '' : currentValue);
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: Text(
+            'Set $label',
+            style: const TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Enter $label value',
+                  hintStyle: const TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                  ),
+                  border: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  enabledBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                onChanged(null);
+              },
+              child: const Text(
+                'Clear',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                onChanged(controller.text.isEmpty ? null : controller.text);
+              },
+              child: const Text(
+                'Set',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showLightningSendDialog() {
+    final TextEditingController invoiceController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Send via Lightning',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Lightning Invoice:',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: invoiceController,
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Paste lightning invoice here...',
+                  hintStyle: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                  ),
+                  border: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        // TODO: Paste from clipboard
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Paste from clipboard functionality coming soon',
+                              style: TextStyle(
+                                color: Color(0xFF00FF00),
+                                fontFamily: 'Courier',
+                              ),
+                            ),
+                            backgroundColor: Color(0xFF1A1A1A),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.content_paste, color: Color(0xFF00FF00), size: 16),
+                      label: const Text(
+                        'Paste',
+                        style: TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                          fontSize: 12,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1A1A1A),
+                        side: const BorderSide(color: Color(0xFF00FF00)),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'This will withdraw your ecash funds by paying the lightning invoice.',
+                style: TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _payLightningInvoice(invoiceController.text);
+              },
+              child: const Text(
+                'Pay Invoice',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _createEcashToken(
+    String amount,
+    String memo,
+    String mintUrl,
+    bool isP2PKEnabled,
+    String? p2pkPubkey,
+    String? p2pkSigFlags,
+    String? p2pkNSig,
+    String? p2pkLockTime,
+    String? p2pkRefund,
+  ) {
+    if (amount.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please enter an amount',
+            style: TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: Color(0xFF1A1A1A),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // TODO: Create ecash token using Rust API
+    print('Creating ecash token: $amount sats, memo: $memo, mint: $mintUrl');
+    if (isP2PKEnabled) {
+      print('P2PK enabled: pubkey=$p2pkPubkey, sigFlags=$p2pkSigFlags, nSig=$p2pkNSig, lockTime=$p2pkLockTime, refund=$p2pkRefund');
+    }
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Creating ecash token for $amount sats from $mintUrl...',
+          style: const TextStyle(
+            color: Color(0xFF00FF00),
+            fontFamily: 'Courier',
+          ),
+        ),
+        backgroundColor: const Color(0xFF1A1A1A),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _payLightningInvoice(String invoice) {
+    if (invoice.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please enter a lightning invoice',
+            style: TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: Color(0xFF1A1A1A),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // TODO: Pay lightning invoice using Rust API
+    print('Paying lightning invoice: $invoice');
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Processing lightning payment...',
+          style: TextStyle(
+            color: Color(0xFF00FF00),
+            fontFamily: 'Courier',
+          ),
+        ),
+        backgroundColor: Color(0xFF1A1A1A),
+        duration: Duration(seconds: 2),
       ),
     );
   }
