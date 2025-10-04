@@ -70,13 +70,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
-  (String, List<CashuProof>, List<String>)
-  dco_decode_record_string_list_cashu_proof_list_string(dynamic raw);
-
-  @protected
-  (String, List<String>) dco_decode_record_string_list_string(dynamic raw);
-
-  @protected
   (String, String) dco_decode_record_string_string(dynamic raw);
 
   @protected
@@ -152,17 +145,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
-
-  @protected
-  (String, List<CashuProof>, List<String>)
-  sse_decode_record_string_list_cashu_proof_list_string(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  (String, List<String>) sse_decode_record_string_list_string(
-    SseDeserializer deserializer,
-  );
 
   @protected
   (String, String) sse_decode_record_string_string(
@@ -264,18 +246,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_record_string_list_cashu_proof_list_string(
-    (String, List<CashuProof>, List<String>) self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_record_string_list_string(
-    (String, List<String>) self,
-    SseSerializer serializer,
-  );
 
   @protected
   void sse_encode_record_string_string(

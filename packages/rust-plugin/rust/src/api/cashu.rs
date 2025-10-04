@@ -148,10 +148,12 @@ pub fn init_multi_mint_wallet(database_dir: String, seed_hex: String) -> Result<
 
 /// Parse seed from hex string
 fn parse_seed_from_hex(seed_hex: &str) -> Result<[u8; 32], String> {
-    if seed_hex.len() != 64 {
-        return Err("Seed must be 64 hex characters (32 bytes)".to_string());
+    if seed_hex.len() != 128 {
+        return Err("Seed must be 128 hex characters (64 bytes)".to_string());
     }
     
+    // BIP39 generates 64-byte seed, but we need 32-byte seed for MultiMintWallet
+    // Take the first 32 bytes (first 64 hex characters)
     let mut seed = [0u8; 32];
     for (i, chunk) in seed_hex.as_bytes().chunks(2).enumerate() {
         if i >= 32 {
