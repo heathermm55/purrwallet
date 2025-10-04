@@ -11,6 +11,7 @@ use cdk::cdk_database::WalletDatabase;
 use cdk::wallet::types::{TransactionDirection, WalletKey};
 use cdk::mint_url::MintUrl;
 use cdk_sqlite::WalletSqliteDatabase;
+use bip39::{Mnemonic, Language};
 use rand::random;
 use std::path::PathBuf;
 use std::fs;
@@ -783,6 +784,98 @@ pub fn validate_cashu_proof(proof: CashuProof) -> Result<bool, String> {
     
     // Try to convert to CDK Proof to validate format
     match Proof::try_from(proof) {
+        Ok(_) => Ok(true),
+        Err(_) => Ok(false),
+    }
+}
+
+/// Generate a new BIP39 mnemonic phrase (12 or 24 words)
+#[flutter_rust_bridge::frb(sync)]
+pub fn generate_mnemonic_phrase(word_count: u32) -> Result<String, String> {
+    let language = Language::English; // Default to English
+    
+    let mnemonic = match word_count {
+        12 => {
+            // Generate 128 bits (16 bytes) of entropy for 12 words
+            let mut entropy = [0u8; 16];
+            for i in 0..entropy.len() {
+                entropy[i] = random::<u8>();
+            }
+            Mnemonic::from_entropy(&entropy)
+                .map_err(|e| format!("Failed to generate 12-word mnemonic: {}", e))?
+        },
+        24 => {
+            // Generate 256 bits (32 bytes) of entropy for 24 words
+            let mut entropy = [0u8; 32];
+            for i in 0..entropy.len() {
+                entropy[i] = random::<u8>();
+            }
+            Mnemonic::from_entropy(&entropy)
+                .map_err(|e| format!("Failed to generate 24-word mnemonic: {}", e))?
+        },
+        _ => return Err("Word count must be 12 or 24".to_string()),
+    };
+    
+    Ok(mnemonic.to_string())
+}
+
+/// Convert mnemonic phrase to seed hex (64 hex characters)
+#[flutter_rust_bridge::frb(sync)]
+pub fn mnemonic_to_seed_hex(mnemonic_phrase: String) -> Result<String, String> {
+    let mnemonic = Mnemonic::from_str(&mnemonic_phrase)
+        .map_err(|e| format!("Invalid mnemonic phrase: {}", e))?;
+    let seed = mnemonic.to_seed_normalized("");
+    Ok(hex::encode(seed))
+}
+
+/// Convert seed hex to mnemonic phrase (for verification/testing)
+#[flutter_rust_bridge::frb(sync)]
+pub fn seed_hex_to_mnemonic(seed_hex: String) -> Result<String, String> {
+    // Parse seed hex
+    let seed_bytes = hex::decode(&seed_hex)
+        .map_err(|e| format!("Invalid hex: {}", e))?;
+    
+    // Determine word count based on seed length
+    let word_count = match seed_bytes.len() {
+        16 => 12, // 128 bits -> 12 words
+        32 => 24, // 256 bits -> 24 words
+        _ => return Err("Seed must be 16 or 32 bytes".to_string()),
+    };
+    
+    // Convert entropy to mnemonic
+    let entropy_array: [u8; 32] = {
+        if seed_bytes.len() == 16 {
+            let mut full_entropy = [0u8; 32];
+            full_entropy[..16].copy_from_slice(&seed_bytes);
+            // For 12 words, we keep only first 16 bytes
+            [0u8; 32] // This approach is incorrect for bip39
+        } else {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(&seed_bytes);
+            arr
+        }
+    };
+    
+    let mnemonic = if word_count == 12 {
+        let entropy_16: [u8; 16] = {
+            let mut arr = [0u8; 16];
+            arr.copy_from_slice(&seed_bytes[..16]);
+            arr
+        };
+        Mnemonic::from_entropy(&entropy_16)
+            .map_err(|e| format!("Failed to convert 16-byte seed to mnemonic: {}", e))?
+    } else {
+        Mnemonic::from_entropy(&entropy_array)
+            .map_err(|e| format!("Failed to convert 32-byte seed to mnemonic: {}", e))?
+    };
+    
+    Ok(mnemonic.to_string())
+}
+
+/// Validate a mnemonic phrase
+#[flutter_rust_bridge::frb(sync)]
+pub fn validate_mnemonic_phrase(mnemonic_phrase: String) -> Result<bool, String> {
+    match Mnemonic::from_str(&mnemonic_phrase) {
         Ok(_) => Ok(true),
         Err(_) => Ok(false),
     }

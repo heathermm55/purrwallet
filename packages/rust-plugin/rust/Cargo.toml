@@ -17,6 +17,7 @@ thiserror = "2.0.17"
 url = "2.5.7"
 tokio = { version = "1.0", features = ["full"] }
 rand = "0.8"
+bip39 = { version = "2.0", features = ["rand"] }
 
 # Local dependencies - use local nostr and cdk
 nostr = { path = "../../../../nostr/crates/nostr", features = ["nip04", "nip44", "nip60"] }

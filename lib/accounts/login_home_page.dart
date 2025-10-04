@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'create_account_page.dart';
-import 'login_page.dart';
+import '../wallet/pages/create_wallet_page.dart';
+import '../wallet/pages/import_wallet_page.dart';
 
 /// Login home page - IRC style
 class LoginHomePage extends StatefulWidget {
@@ -188,12 +188,12 @@ class _LoginHomePageState extends State<LoginHomePage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const CreateAccountPage(),
+                      builder: (context) => const CreateWalletPage(),
                     ),
                   );
                 },
                 child: const Text(
-                  'CREATE ACCOUNT',
+                  'CREATE WALLET',
                   style: TextStyle(fontSize: 16),
                 ),
               ),
@@ -207,12 +207,12 @@ class _LoginHomePageState extends State<LoginHomePage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const LoginPage(),
+                    builder: (context) => const ImportWalletPage(),
                   ),
                 );
               },
               child: const Text(
-                'Already have account? Click here',
+                'Already have wallet? Import here',
                 style: TextStyle(fontSize: 14),
               ),
             ),

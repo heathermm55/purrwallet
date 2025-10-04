@@ -185,6 +185,26 @@ Map<String, String> parseCashuToken({required String token}) =>
 bool validateCashuProof({required CashuProof proof}) =>
     RustLib.instance.api.crateApiCashuValidateCashuProof(proof: proof);
 
+/// Generate a new BIP39 mnemonic phrase (12 or 24 words)
+String generateMnemonicPhrase({required int wordCount}) => RustLib.instance.api
+    .crateApiCashuGenerateMnemonicPhrase(wordCount: wordCount);
+
+/// Convert mnemonic phrase to seed hex (64 hex characters)
+String mnemonicToSeedHex({required String mnemonicPhrase}) => RustLib
+    .instance
+    .api
+    .crateApiCashuMnemonicToSeedHex(mnemonicPhrase: mnemonicPhrase);
+
+/// Convert seed hex to mnemonic phrase (for verification/testing)
+String seedHexToMnemonic({required String seedHex}) =>
+    RustLib.instance.api.crateApiCashuSeedHexToMnemonic(seedHex: seedHex);
+
+/// Validate a mnemonic phrase
+bool validateMnemonicPhrase({required String mnemonicPhrase}) => RustLib
+    .instance
+    .api
+    .crateApiCashuValidateMnemonicPhrase(mnemonicPhrase: mnemonicPhrase);
+
 /// Cashu proof structure for FFI
 class CashuProof {
   final String id;
