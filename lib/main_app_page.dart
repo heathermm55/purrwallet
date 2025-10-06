@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'accounts/services/auth_service.dart';
 import 'accounts/services/user_service.dart';
 import 'dart:math';
+import 'settings_page.dart';
 
 /// Main app page - Wallet interface
 class MainAppPage extends StatefulWidget {
@@ -1883,108 +1884,128 @@ class _MainAppPageState extends State<MainAppPage> {
         actions: [
           IconButton(
             onPressed: () {
-              _showMenuDialog();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const SettingsPage(),
+                ),
+              );
             },
             icon: const Icon(
-              Icons.more_vert,
+              Icons.settings,
               color: Color(0xFF00FF00),
             ),
           ),
         ],
       ),
-      body: CustomScrollView(
-        slivers: [
-          // Wallet Cards Section
-          SliverToBoxAdapter(
-            child: Container(
-              height: 200,
-              padding: const EdgeInsets.all(16),
-              child: _buildWalletCard(
-                'Local Wallet',
-                _walletInfo != null ? '${_formatBalance(_walletInfo!.balance.toString())} sats' : '0 sats',
-                null, // No USD display
-                const LinearGradient(
-                  colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
+      body: Stack(
+        children: [
+          CustomScrollView(
+            slivers: [
+              // Wallet Cards Section
+              SliverToBoxAdapter(
+                child: Container(
+                  height: 200,
+                  padding: const EdgeInsets.all(16),
+                  child: _buildWalletCard(
+                    'Local Wallet',
+                    _walletInfo != null ? '${_formatBalance(_walletInfo!.balance.toString())} sats' : '0 sats',
+                    null, // No USD display
+                    const LinearGradient(
+                      colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
+                    ),
+                    Icons.flash_on,
+                  ),
                 ),
-                Icons.flash_on,
               ),
-            ),
-          ),
-          
-          // Transaction History Section
-          SliverToBoxAdapter(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'TRANSACTION',
-                    style: TextStyle(
-                      color: Color(0xFF00FF00),
-                      fontFamily: 'Courier',
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      // TODO: Navigate to full transaction list
-                    },
-                    child: const Text(
-                      'VIEW ALL',
-                      style: TextStyle(
-                        color: Color(0xFF00FF00),
-                        fontFamily: 'Courier',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+              
+              // Transaction History Section
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'TRANSACTION',
+                        style: TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
-                    ),
+                      TextButton(
+                        onPressed: () {
+                          // TODO: Navigate to full transaction list
+                        },
+                        child: const Text(
+                          'VIEW ALL',
+                          style: TextStyle(
+                            color: Color(0xFF00FF00),
+                            fontFamily: 'Courier',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+              ),
+              
+              SliverToBoxAdapter(
+                child: const SizedBox(height: 16),
+              ),
+              
+              // Transaction List
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildTransactionItem(index),
+                    );
+                  },
+                    childCount: _transactions.length, // Match the number of transactions in the array
+                ),
+              ),
+              
+              // Add bottom padding to account for floating navigation
+              SliverToBoxAdapter(
+                child: const SizedBox(height: 100),
+              ),
+            ],
+          ),
+          // Floating bottom navigation bar
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 30,
+            child: Container(
+              height: 70,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                borderRadius: BorderRadius.circular(35),
+                border: Border.all(color: const Color(0xFF00FF00), width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildBottomNavButton('Receive', Icons.keyboard_arrow_down, onTap: _showReceiveOptions),
+                  _buildBottomNavButton('Scan', Icons.qr_code_scanner, onTap: _showScanDialog),
+                  _buildBottomNavButton('Send', Icons.keyboard_arrow_up, onTap: _showSendOptions),
                 ],
               ),
             ),
           ),
-          
-          SliverToBoxAdapter(
-            child: const SizedBox(height: 16),
-          ),
-          
-          // Transaction List
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _buildTransactionItem(index),
-                );
-              },
-                childCount: _transactions.length, // Match the number of transactions in the array
-            ),
-          ),
-          
-          // Add bottom padding to account for bottom navigation
-          SliverToBoxAdapter(
-            child: const SizedBox(height: 100),
-          ),
         ],
-      ),
-      bottomNavigationBar: Container(
-        height: 80,
-        decoration: const BoxDecoration(
-          color: Color(0xFF1A1A1A),
-          border: Border(
-            top: BorderSide(color: Color(0xFF333333)),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildBottomNavButton('Receive', Icons.keyboard_arrow_down, onTap: _showReceiveOptions),
-            _buildBottomNavButton('Scan', Icons.qr_code_scanner, onTap: _showScanDialog),
-            _buildBottomNavButton('Send', Icons.keyboard_arrow_up, onTap: _showSendOptions),
-          ],
-        ),
       ),
     );
   }
