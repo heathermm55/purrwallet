@@ -14,11 +14,11 @@ use cdk_sqlite::WalletSqliteDatabase;
 use bip39::{Mnemonic, Language};
 use rand::random;
 use std::path::PathBuf;
-use std::fs;
 use tokio::sync::RwLock;
 
 /// Global MultiMintWallet instance
 static MULTI_MINT_WALLET: RwLock<Option<Arc<MultiMintWallet>>> = RwLock::const_new(None);
+
 
 /// Execute async operation with a new runtime
 fn execute_async<F, R>(f: F) -> Result<R, String>
@@ -378,11 +378,11 @@ pub fn create_wallet(mint_url: String, unit: String, database_dir: String) -> Re
 
 /// Get wallet balance
 #[flutter_rust_bridge::frb(sync)]
-pub fn get_wallet_balance(mint_url: String, unit: String, database_dir: String) -> Result<u64, String> {
-    let rt = tokio::runtime::Runtime::new().map_err(|e| format!("Failed to create runtime: {}", e))?;
-    
-    rt.block_on(async {
-        let seed = random::<[u8; 32]>();
+pub fn get_wallet_balance(mint_url: String, unit: String, _database_dir: String) -> Result<u64, String> {
+    execute_async(async {
+        let mint_url_parsed = MintUrl::from_str(&mint_url)
+            .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
         let currency_unit = match unit.as_str() {
             "sat" => CurrencyUnit::Sat,
             "usd" => CurrencyUnit::Usd,
@@ -390,20 +390,19 @@ pub fn get_wallet_balance(mint_url: String, unit: String, database_dir: String) 
             _ => return Err("Unsupported currency unit".to_string()),
         };
 
-        let db_path = get_database_path(&database_dir, &mint_url);
-        std::fs::create_dir_all(db_path.parent().unwrap())
-            .map_err(|e| format!("Failed to create database directory: {}", e))?;
-        
-        let localstore = WalletSqliteDatabase::new(db_path.to_str().unwrap()).await
-            .map_err(|e| format!("Failed to create SQLite store: {}", e))?;
+        // Use MultiMintWallet to get wallet balance
+        let wallet_guard = MULTI_MINT_WALLET.read().await;
+        let multi_mint_wallet = wallet_guard.as_ref()
+            .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet = Wallet::new(
-            &mint_url,
-            currency_unit,
-            Arc::new(localstore),
-            &seed,
-            None,
-        ).map_err(|e| format!("Failed to create wallet: {}", e))?;
+        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
+        
+        if !multi_mint_wallet.has(&wallet_key).await {
+            return Err("Mint not found in wallet".to_string());
+        }
+
+        let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
+            .ok_or("Failed to get wallet")?;
 
         let balance = wallet.total_balance().await
             .map_err(|e| format!("Failed to get balance: {}", e))?;
@@ -414,11 +413,11 @@ pub fn get_wallet_balance(mint_url: String, unit: String, database_dir: String) 
 
 /// Get wallet information
 #[flutter_rust_bridge::frb(sync)]
-pub fn get_wallet_info(mint_url: String, unit: String, database_dir: String) -> Result<WalletInfo, String> {
-    let rt = tokio::runtime::Runtime::new().map_err(|e| format!("Failed to create runtime: {}", e))?;
-    
-    rt.block_on(async {
-        let seed = random::<[u8; 32]>();
+pub fn get_wallet_info(mint_url: String, unit: String, _database_dir: String) -> Result<WalletInfo, String> {
+    execute_async(async {
+        let mint_url_parsed = MintUrl::from_str(&mint_url)
+            .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
         let currency_unit = match unit.as_str() {
             "sat" => CurrencyUnit::Sat,
             "usd" => CurrencyUnit::Usd,
@@ -426,20 +425,19 @@ pub fn get_wallet_info(mint_url: String, unit: String, database_dir: String) -> 
             _ => return Err("Unsupported currency unit".to_string()),
         };
 
-        let db_path = get_database_path(&database_dir, &mint_url);
-        std::fs::create_dir_all(db_path.parent().unwrap())
-            .map_err(|e| format!("Failed to create database directory: {}", e))?;
-        
-        let localstore = WalletSqliteDatabase::new(db_path.to_str().unwrap()).await
-            .map_err(|e| format!("Failed to create SQLite store: {}", e))?;
+        // Use MultiMintWallet to get wallet info
+        let wallet_guard = MULTI_MINT_WALLET.read().await;
+        let multi_mint_wallet = wallet_guard.as_ref()
+            .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet = Wallet::new(
-            &mint_url,
-            currency_unit,
-            Arc::new(localstore),
-            &seed,
-            None,
-        ).map_err(|e| format!("Failed to create wallet: {}", e))?;
+        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
+        
+        if !multi_mint_wallet.has(&wallet_key).await {
+            return Err("Mint not found in wallet".to_string());
+        }
+
+        let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
+            .ok_or("Failed to get wallet")?;
 
         let balance = wallet.total_balance().await
             .map_err(|e| format!("Failed to get balance: {}", e))?;
@@ -456,6 +454,147 @@ pub fn get_wallet_info(mint_url: String, unit: String, database_dir: String) -> 
             balance: balance.into(),
             active_keyset_id,
         })
+    })
+}
+
+/// Mint information structure for NUT-06
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintInfo {
+    pub name: Option<String>,
+    pub version: Option<String>,
+    pub description: Option<String>,
+    pub description_long: Option<String>,
+    pub contact: Option<Vec<ContactInfo>>,
+    pub motd: Option<String>,
+    pub icon_url: Option<String>,
+    pub urls: Option<Vec<String>>,
+    pub nuts: Option<Vec<String>>,
+    pub public_key: Option<String>,
+    pub additional_info: Option<String>,
+}
+
+/// Contact information structure
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContactInfo {
+    pub method: String,
+    pub info: String,
+}
+
+/// Extract supported NUTs from the Nuts struct
+fn extract_supported_nuts(nuts: &cdk::nuts::Nuts) -> Vec<String> {
+    let mut supported_nuts = Vec::new();
+    
+    // Always include basic NUTs that are present in the struct
+    supported_nuts.push("NUT-04".to_string()); // Mint
+    supported_nuts.push("NUT-05".to_string()); // Melt
+    
+    // Check each NUT field and add to list if supported
+    if nuts.nut07.supported {
+        supported_nuts.push("NUT-07".to_string());
+    }
+    if nuts.nut08.supported {
+        supported_nuts.push("NUT-08".to_string());
+    }
+    if nuts.nut09.supported {
+        supported_nuts.push("NUT-09".to_string());
+    }
+    if nuts.nut10.supported {
+        supported_nuts.push("NUT-10".to_string());
+    }
+    if nuts.nut11.supported {
+        supported_nuts.push("NUT-11".to_string());
+    }
+    if nuts.nut12.supported {
+        supported_nuts.push("NUT-12".to_string());
+    }
+    if nuts.nut14.supported {
+        supported_nuts.push("NUT-14".to_string());
+    }
+    if nuts.nut15.methods.len() > 0 {
+        supported_nuts.push("NUT-15".to_string());
+    }
+    if nuts.nut17.supported.len() > 0 {
+        supported_nuts.push("NUT-17".to_string());
+    }
+    if nuts.nut19.ttl.is_some() || nuts.nut19.cached_endpoints.len() > 0 {
+        supported_nuts.push("NUT-19".to_string());
+    }
+    if nuts.nut20.supported {
+        supported_nuts.push("NUT-20".to_string());
+    }
+    
+    // Add auth NUTs if available
+    #[cfg(feature = "auth")]
+    {
+        if nuts.nut21.is_some() {
+            supported_nuts.push("NUT-21".to_string());
+        }
+        if nuts.nut22.is_some() {
+            supported_nuts.push("NUT-22".to_string());
+        }
+    }
+    
+    supported_nuts
+}
+
+/// Get mint information from NUT-06 endpoint
+#[flutter_rust_bridge::frb(sync)]
+pub fn get_mint_info(mint_url: String, unit: String, _database_dir: String) -> Result<MintInfo, String> {
+    execute_async(async {
+        let mint_url_parsed = MintUrl::from_str(&mint_url)
+            .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
+        let currency_unit = match unit.as_str() {
+            "sat" => CurrencyUnit::Sat,
+            "usd" => CurrencyUnit::Usd,
+            "eur" => CurrencyUnit::Eur,
+            _ => return Err("Unsupported currency unit".to_string()),
+        };
+
+        // Use MultiMintWallet to get mint info
+        let wallet_guard = MULTI_MINT_WALLET.read().await;
+        let multi_mint_wallet = wallet_guard.as_ref()
+            .ok_or("MultiMintWallet not initialized")?;
+
+        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
+        
+        if !multi_mint_wallet.has(&wallet_key).await {
+            return Err("Mint not found in wallet".to_string());
+        }
+
+        let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
+            .ok_or("Failed to get wallet")?;
+
+        // Get mint info using the wallet's get_mint_info method
+        let mint_info_result = wallet.get_mint_info().await
+            .map_err(|e| format!("Failed to get mint info: {}", e))?;
+
+        match mint_info_result {
+            Some(info) => {
+                // Convert CDK MintInfo to our FFI structure
+                let contact_info = info.contact.map(|contacts| {
+                    contacts.into_iter().map(|c| ContactInfo {
+                        method: c.method,
+                        info: c.info,
+                    }).collect()
+                });
+
+                Ok(MintInfo {
+                    name: info.name,
+                    version: info.version.map(|v| v.to_string()),
+                    description: info.description,
+                    description_long: info.description_long,
+                    contact: contact_info,
+                    motd: info.motd,
+                    icon_url: info.icon_url,
+                    urls: info.urls,
+                    nuts: Some(extract_supported_nuts(&info.nuts)),
+                    public_key: None, // This would need to be extracted from keysets
+                    additional_info: None,
+                })
+            }
+            None => Err("Mint info not available".to_string()),
+        }
     })
 }
 
@@ -504,7 +643,7 @@ pub fn send_tokens(mint_url: String, unit: String, amount: u64, memo: Option<Str
 
 /// Receive tokens
 #[flutter_rust_bridge::frb(sync)]
-pub fn receive_tokens(mint_url: String, unit: String, token: String, memo: Option<String>, database_dir: String) -> Result<u64, String> {
+pub fn receive_tokens(mint_url: String, unit: String, token: String, _memo: Option<String>, database_dir: String) -> Result<u64, String> {
     let rt = tokio::runtime::Runtime::new().map_err(|e| format!("Failed to create runtime: {}", e))?;
     
     rt.block_on(async {
@@ -531,7 +670,7 @@ pub fn receive_tokens(mint_url: String, unit: String, token: String, memo: Optio
             None,
         ).map_err(|e| format!("Failed to create wallet: {}", e))?;
 
-        let cashu_token = Token::from_str(&token)
+        let _cashu_token = Token::from_str(&token)
             .map_err(|e| format!("Failed to parse token: {}", e))?;
 
         let receive_options = ReceiveOptions::default();
@@ -794,7 +933,7 @@ pub fn validate_cashu_proof(proof: CashuProof) -> Result<bool, String> {
 /// Generate a new BIP39 mnemonic phrase (12 or 24 words)
 #[flutter_rust_bridge::frb(sync)]
 pub fn generate_mnemonic_phrase(word_count: u32) -> Result<String, String> {
-    let language = Language::English; // Default to English
+    let _language = Language::English; // Default to English
     
     let mnemonic = match word_count {
         12 => {

@@ -6,8 +6,8 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `execute_async`, `get_database_path`, `load_wallets_from_database`, `parse_seed_from_hex`, `wallet_database_exists`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `from`, `try_from`
+// These functions are ignored because they are not marked as `pub`: `execute_async`, `extract_supported_nuts`, `get_database_path`, `load_wallets_from_database`, `parse_seed_from_hex`, `wallet_database_exists`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `try_from`
 
 /// Initialize MultiMintWallet
 String initMultiMintWallet({
@@ -68,6 +68,17 @@ WalletInfo getWalletInfo({
   required String unit,
   required String databaseDir,
 }) => RustLib.instance.api.crateApiCashuGetWalletInfo(
+  mintUrl: mintUrl,
+  unit: unit,
+  databaseDir: databaseDir,
+);
+
+/// Get mint information from NUT-06 endpoint
+MintInfo getMintInfo({
+  required String mintUrl,
+  required String unit,
+  required String databaseDir,
+}) => RustLib.instance.api.crateApiCashuGetMintInfo(
   mintUrl: mintUrl,
   unit: unit,
   databaseDir: databaseDir,
@@ -232,6 +243,85 @@ class CashuProof {
           amount == other.amount &&
           secret == other.secret &&
           c == other.c;
+}
+
+/// Contact information structure
+class ContactInfo {
+  final String method;
+  final String info;
+
+  const ContactInfo({required this.method, required this.info});
+
+  @override
+  int get hashCode => method.hashCode ^ info.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ContactInfo &&
+          runtimeType == other.runtimeType &&
+          method == other.method &&
+          info == other.info;
+}
+
+/// Mint information structure for NUT-06
+class MintInfo {
+  final String? name;
+  final String? version;
+  final String? description;
+  final String? descriptionLong;
+  final List<ContactInfo>? contact;
+  final String? motd;
+  final String? iconUrl;
+  final List<String>? urls;
+  final List<String>? nuts;
+  final String? publicKey;
+  final String? additionalInfo;
+
+  const MintInfo({
+    this.name,
+    this.version,
+    this.description,
+    this.descriptionLong,
+    this.contact,
+    this.motd,
+    this.iconUrl,
+    this.urls,
+    this.nuts,
+    this.publicKey,
+    this.additionalInfo,
+  });
+
+  @override
+  int get hashCode =>
+      name.hashCode ^
+      version.hashCode ^
+      description.hashCode ^
+      descriptionLong.hashCode ^
+      contact.hashCode ^
+      motd.hashCode ^
+      iconUrl.hashCode ^
+      urls.hashCode ^
+      nuts.hashCode ^
+      publicKey.hashCode ^
+      additionalInfo.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MintInfo &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          version == other.version &&
+          description == other.description &&
+          descriptionLong == other.descriptionLong &&
+          contact == other.contact &&
+          motd == other.motd &&
+          iconUrl == other.iconUrl &&
+          urls == other.urls &&
+          nuts == other.nuts &&
+          publicKey == other.publicKey &&
+          additionalInfo == other.additionalInfo;
 }
 
 /// Transaction information structure

@@ -38,10 +38,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CashuProof dco_decode_cashu_proof(dynamic raw);
 
   @protected
+  ContactInfo dco_decode_contact_info(dynamic raw);
+
+  @protected
   List<String> dco_decode_list_String(dynamic raw);
 
   @protected
   List<CashuProof> dco_decode_list_cashu_proof(dynamic raw);
+
+  @protected
+  List<ContactInfo> dco_decode_list_contact_info(dynamic raw);
 
   @protected
   List<List<String>> dco_decode_list_list_String(dynamic raw);
@@ -56,6 +62,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<TransactionInfo> dco_decode_list_transaction_info(dynamic raw);
 
   @protected
+  MintInfo dco_decode_mint_info(dynamic raw);
+
+  @protected
   NostrEvent dco_decode_nostr_event(dynamic raw);
 
   @protected
@@ -66,6 +75,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
+
+  @protected
+  List<String>? dco_decode_opt_list_String(dynamic raw);
+
+  @protected
+  List<ContactInfo>? dco_decode_opt_list_contact_info(dynamic raw);
 
   @protected
   (String, String) dco_decode_record_string_string(dynamic raw);
@@ -109,10 +124,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CashuProof sse_decode_cashu_proof(SseDeserializer deserializer);
 
   @protected
+  ContactInfo sse_decode_contact_info(SseDeserializer deserializer);
+
+  @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
 
   @protected
   List<CashuProof> sse_decode_list_cashu_proof(SseDeserializer deserializer);
+
+  @protected
+  List<ContactInfo> sse_decode_list_contact_info(SseDeserializer deserializer);
 
   @protected
   List<List<String>> sse_decode_list_list_String(SseDeserializer deserializer);
@@ -131,6 +152,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  MintInfo sse_decode_mint_info(SseDeserializer deserializer);
+
+  @protected
   NostrEvent sse_decode_nostr_event(SseDeserializer deserializer);
 
   @protected
@@ -143,6 +167,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
+
+  @protected
+  List<String>? sse_decode_opt_list_String(SseDeserializer deserializer);
+
+  @protected
+  List<ContactInfo>? sse_decode_opt_list_contact_info(
+    SseDeserializer deserializer,
+  );
 
   @protected
   (String, String) sse_decode_record_string_string(
@@ -198,11 +230,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_cashu_proof(CashuProof self, SseSerializer serializer);
 
   @protected
+  void sse_encode_contact_info(ContactInfo self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_cashu_proof(
     List<CashuProof> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_contact_info(
+    List<ContactInfo> self,
     SseSerializer serializer,
   );
 
@@ -231,6 +272,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_mint_info(MintInfo self, SseSerializer serializer);
+
+  @protected
   void sse_encode_nostr_event(NostrEvent self, SseSerializer serializer);
 
   @protected
@@ -244,6 +288,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_list_String(List<String>? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_list_contact_info(
+    List<ContactInfo>? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_record_string_string(

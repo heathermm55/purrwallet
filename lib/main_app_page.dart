@@ -6,7 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'accounts/services/auth_service.dart';
 import 'accounts/services/user_service.dart';
 import 'dart:math';
-import 'settings_page.dart';
+import 'settings/main_settings_page.dart';
 
 /// Main app page - Wallet interface
 class MainAppPage extends StatefulWidget {
