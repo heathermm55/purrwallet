@@ -1891,7 +1891,7 @@ dependencies = [
 
 [[package]]
 name = "nostr"
-version = "0.42.1"
+version = "0.43.0"
 dependencies = [
  "aes",
  "base64 0.22.1",
@@ -1902,6 +1902,7 @@ dependencies = [
  "chacha20",
  "chacha20poly1305",
  "getrandom 0.2.16",
+ "hex",
  "instant",
  "scrypt",
  "secp256k1",

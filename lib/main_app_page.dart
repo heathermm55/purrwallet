@@ -78,43 +78,15 @@ class _MainAppPageState extends State<MainAppPage> {
       final initResult = initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
       print('MultiMintWallet init result: $initResult');
 
-      // Add default local mint
-      const mintUrl = 'https://8333.space'; // Default local mint
-      const unit = 'sat';
-      
-      final addMintResult = addMint(mintUrl: mintUrl, unit: unit);
-      print('Add mint result: $addMintResult');
-
-      // Try to get wallet info, but handle errors gracefully
+      // Mints are now empty by default - users can add their own mints
+      // No default wallet info since no mints are configured
       WalletInfo? walletInfo;
       List<TransactionInfo> transactions = [];
       
-      try {
-        walletInfo = getWalletInfo(mintUrl: mintUrl, unit: unit, databaseDir: databaseDir);
-        print('Wallet info: $walletInfo');
-      } catch (e) {
-        print('Failed to get wallet info: $e');
-        // Create a default wallet info
-        walletInfo = WalletInfo(
-          mintUrl: mintUrl,
-          unit: unit,
-          balance: BigInt.zero,
-          activeKeysetId: 'default',
-        );
-      }
-
-
-      try {
-        transactions = getWalletTransactions(mintUrl: mintUrl, unit: unit, databaseDir: databaseDir);
-        print('Transactions: ${transactions.length}');
-      } catch (e) {
-        print('Failed to get transactions: $e');
-        transactions = [];
-      }
-
+      // Initialize with empty state since no mints are configured
       setState(() {
-        _walletInfo = walletInfo;
-        _transactions = transactions;
+        _walletInfo = null; // No wallet info without mints
+        _transactions = []; // No transactions without mints
       });
     } catch (e) {
       print('Wallet initialization error: $e');
@@ -446,6 +418,67 @@ class _MainAppPageState extends State<MainAppPage> {
     );
   }
 
+  /// Validate mint URL to support various protocols and address types
+  bool _isValidMintUrl(String url) {
+    if (url.isEmpty) return false;
+    
+    // Remove trailing slashes
+    url = url.trim().replaceAll(RegExp(r'/+$'), '');
+    
+    // Check for supported protocols
+    final supportedProtocols = ['http', 'https'];
+    final hasProtocol = supportedProtocols.any((protocol) => url.toLowerCase().startsWith('$protocol://'));
+    
+    if (!hasProtocol) {
+      // If no protocol specified, assume https
+      url = 'https://$url';
+    }
+    
+    try {
+      final uri = Uri.parse(url);
+      
+      // Check if it's a valid URI
+      if (!uri.hasScheme || !uri.hasAuthority) return false;
+      
+      // Validate scheme
+      if (!supportedProtocols.contains(uri.scheme.toLowerCase())) return false;
+      
+      // Check for various address types
+      final host = uri.host.toLowerCase();
+      
+      // Local addresses
+      if (host == 'localhost' || host == '127.0.0.1') return true;
+      
+      // Private network ranges
+      if (host.startsWith('192.168.') || 
+          host.startsWith('10.') || 
+          host.startsWith('172.')) {
+        return true;
+      }
+      
+      // Tor .onion addresses
+      if (host.endsWith('.onion')) return true;
+      
+      // Regular domain names (must contain at least one dot)
+      if (host.contains('.') && !host.startsWith('.') && !host.endsWith('.')) return true;
+      
+      // IP addresses (IPv4)
+      final ipv4Regex = RegExp(r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$');
+      if (ipv4Regex.hasMatch(host)) {
+        final parts = host.split('.');
+        for (final part in parts) {
+          final num = int.tryParse(part);
+          if (num == null || num < 0 || num > 255) return false;
+        }
+        return true;
+      }
+      
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   void _showMintsDialog() {
     showDialog(
       context: context,
@@ -460,82 +493,181 @@ class _MainAppPageState extends State<MainAppPage> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Current Mints:',
-                style: TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _showMintDetailDialog('https://8333.space', 'Local');
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Color(0xFF00FF00)),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.account_balance_wallet, color: Color(0xFF00FF00), size: 16),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Local Mint',
-                          style: TextStyle(
-                            color: Color(0xFF00FF00),
-                            fontFamily: 'Courier',
-                            fontSize: 12,
-                          ),
+          content: FutureBuilder<List<String>>(
+            future: Future(() => listMints()),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF00)),
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Loading mints...',
+                      style: TextStyle(
+                        color: Color(0xFF666666),
+                        fontFamily: 'Courier',
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                );
+              }
+              
+              final mints = snapshot.data ?? [];
+              
+              if (mints.isEmpty) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'No mints configured',
+                      style: TextStyle(
+                        color: Color(0xFF666666),
+                        fontFamily: 'Courier',
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Add new mint:',
+                      style: TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      style: const TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: 'Enter mint URL',
+                        hintStyle: TextStyle(
+                          color: Color(0xFF666666),
+                          fontFamily: 'Courier',
+                        ),
+                        border: OutlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF00FF00)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF00FF00)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF00FF00)),
                         ),
                       ),
-                      Icon(Icons.arrow_forward_ios, color: Color(0xFF666666), size: 12),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Add new mint:',
-                style: TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                style: const TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                ),
-                decoration: const InputDecoration(
-                  hintText: 'Enter mint URL',
-                  hintStyle: TextStyle(
-                    color: Color(0xFF666666),
-                    fontFamily: 'Courier',
-                  ),
-                  border: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00FF00)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00FF00)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00FF00)),
-                  ),
-                ),
-              ),
-            ],
+                    ),
+                  ],
+                );
+              } else {
+                // Show current mints list
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Current Mints:',
+                      style: TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...mints.map((mint) {
+                      final parts = mint.split(':');
+                      final mintUrl = parts.isNotEmpty ? parts[0] : mint;
+                      final unit = parts.length > 1 ? parts[1] : 'sat';
+                      
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            _showMintDetailDialog(mintUrl, 'Mint');
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Color(0xFF00FF00)),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.account_balance_wallet, color: Color(0xFF00FF00), size: 16),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        mintUrl,
+                                        style: TextStyle(
+                                          color: Color(0xFF00FF00),
+                                          fontFamily: 'Courier',
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Unit: $unit',
+                                        style: TextStyle(
+                                          color: Color(0xFF666666),
+                                          fontFamily: 'Courier',
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(Icons.arrow_forward_ios, color: Color(0xFF666666), size: 12),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Add new mint:',
+                      style: TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      style: const TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: 'Enter mint URL',
+                        hintStyle: TextStyle(
+                          color: Color(0xFF666666),
+                          fontFamily: 'Courier',
+                        ),
+                        border: OutlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF00FF00)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF00FF00)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF00FF00)),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+            },
           ),
           actions: [
             TextButton(
@@ -551,7 +683,7 @@ class _MainAppPageState extends State<MainAppPage> {
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                // TODO: Add mint functionality
+                _showAddMintDialog();
               },
               child: const Text(
                 'Add',
@@ -565,6 +697,232 @@ class _MainAppPageState extends State<MainAppPage> {
         );
       },
     );
+  }
+
+  void _showAddMintDialog() {
+    final TextEditingController urlController = TextEditingController();
+    final TextEditingController aliasController = TextEditingController();
+    String? urlError;
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1A1A1A),
+              title: const Text(
+                'Add New Mint',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Mint URL:',
+                    style: TextStyle(
+                      color: Color(0xFF00FF00),
+                      fontFamily: 'Courier',
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: urlController,
+                    style: const TextStyle(
+                      color: Color(0xFF00FF00),
+                      fontFamily: 'Courier',
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'https://mint.example.com or localhost:3338',
+                      hintStyle: const TextStyle(
+                        color: Color(0xFF666666),
+                        fontFamily: 'Courier',
+                        fontSize: 12,
+                      ),
+                      border: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF00FF00)),
+                      ),
+                      enabledBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF00FF00)),
+                      ),
+                      focusedBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF00FF00)),
+                      ),
+                      errorText: urlError,
+                      errorStyle: const TextStyle(
+                        color: Color(0xFFFF6B6B),
+                        fontFamily: 'Courier',
+                        fontSize: 10,
+                      ),
+                    ),
+                    onChanged: (value) {
+                      if (value.isNotEmpty) {
+                        final isValid = _isValidMintUrl(value);
+                        setState(() {
+                          urlError = isValid ? null : 'Invalid URL format';
+                        });
+                      } else {
+                        setState(() {
+                          urlError = null;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Alias (optional):',
+                    style: TextStyle(
+                      color: Color(0xFF00FF00),
+                      fontFamily: 'Courier',
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: aliasController,
+                    style: const TextStyle(
+                      color: Color(0xFF00FF00),
+                      fontFamily: 'Courier',
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'My Local Mint',
+                      hintStyle: TextStyle(
+                        color: Color(0xFF666666),
+                        fontFamily: 'Courier',
+                        fontSize: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF00FF00)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF00FF00)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF00FF00)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Supported formats:',
+                    style: TextStyle(
+                      color: Color(0xFF666666),
+                      fontFamily: 'Courier',
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '• HTTPS: https://mint.example.com\n'
+                    '• HTTP: http://localhost:3338\n'
+                    '• Local: localhost:3338 or 127.0.0.1:3338\n'
+                    '• LAN: 192.168.1.100:3338\n'
+                    '• Tor: abc123def.onion:3338',
+                    style: TextStyle(
+                      color: Color(0xFF666666),
+                      fontFamily: 'Courier',
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: Color(0xFF00FF00),
+                      fontFamily: 'Courier',
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    final url = urlController.text.trim();
+                    final alias = aliasController.text.trim();
+                    
+                    if (url.isEmpty) {
+                      setState(() {
+                        urlError = 'URL is required';
+                      });
+                      return;
+                    }
+                    
+                    if (!_isValidMintUrl(url)) {
+                      setState(() {
+                        urlError = 'Invalid URL format';
+                      });
+                      return;
+                    }
+                    
+                    // Add the mint
+                    Navigator.of(context).pop();
+                    _addMint(url, alias.isNotEmpty ? alias : 'Mint');
+                  },
+                  child: const Text(
+                    'Add Mint',
+                    style: TextStyle(
+                      color: Color(0xFF00FF00),
+                      fontFamily: 'Courier',
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _addMint(String mintUrl, String alias) async {
+    try {
+      // Add the mint using the Rust API
+      final result = addMint(mintUrl: mintUrl, unit: 'sat');
+      print('Add mint result: $result');
+      
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Mint added successfully: $alias',
+              style: const TextStyle(
+                color: Color(0xFF00FF00),
+                fontFamily: 'Courier',
+              ),
+            ),
+            backgroundColor: const Color(0xFF1A1A1A),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Failed to add mint: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to add mint: $e',
+              style: const TextStyle(
+                color: Color(0xFFFF6B6B),
+                fontFamily: 'Courier',
+              ),
+            ),
+            backgroundColor: const Color(0xFF1A1A1A),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   void _showMintDetailDialog(String mintUrl, String alias) {
@@ -1522,12 +1880,6 @@ class _MainAppPageState extends State<MainAppPage> {
         ),
         backgroundColor: const Color(0xFF1A1A1A),
         automaticallyImplyLeading: false,
-        leading: GestureDetector(
-          onTap: () {
-            _showAccountMenuDialog();
-          },
-          child: _buildUserAvatar(),
-        ),
         actions: [
           IconButton(
             onPressed: () {
@@ -2512,8 +2864,8 @@ class _MainAppPageState extends State<MainAppPage> {
   void _showEcashSendDialog() {
     final TextEditingController amountController = TextEditingController();
     final TextEditingController memoController = TextEditingController();
-    String selectedMint = 'https://8333.space';
-    String selectedMintAlias = 'Local Mint';
+    String selectedMint = '';
+    String selectedMintAlias = 'No Mint Selected';
     bool isP2PKEnabled = false;
     String? p2pkPubkey;
     String? p2pkSigFlags;
@@ -2822,7 +3174,7 @@ class _MainAppPageState extends State<MainAppPage> {
                   ),
                 ),
                 subtitle: const Text(
-                  'https://8333.space',
+                  'No default mint available',
                   style: TextStyle(
                     color: Color(0xFF666666),
                     fontFamily: 'Courier',
@@ -2831,7 +3183,7 @@ class _MainAppPageState extends State<MainAppPage> {
                 ),
                 onTap: () {
                   Navigator.of(context).pop();
-                  onMintSelected('https://8333.space', 'Local Mint');
+                  // No default mint to select
                 },
               ),
               const Divider(color: Color(0xFF333333)),

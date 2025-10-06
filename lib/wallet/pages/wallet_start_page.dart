@@ -52,12 +52,7 @@ class _WalletStartPageState extends State<WalletStartPage> {
           final initResult = initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
           print('MultiMintWallet init result: $initResult');
 
-          // Add default mint if not exists
-          try {
-            addMint(mintUrl: 'https://8333.space', unit: 'sat');
-          } catch (e) {
-            print('Default mint might already exist: $e');
-          }
+          // Mints are now empty by default - users can add their own mints
 
           setState(() {
             _status = 'Wallet loaded successfully';
