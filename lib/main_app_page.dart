@@ -3,6 +3,7 @@ import 'package:rust_plugin/src/rust/api/cashu.dart';
 import 'package:rust_plugin/src/rust/api/nostr.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:convert';
 import 'accounts/services/auth_service.dart';
 import 'accounts/services/user_service.dart';
 import 'dart:math';
@@ -2385,6 +2386,9 @@ class _MainAppPageState extends State<MainAppPage> {
   }
 
   void _showLightningReceiveDialog() {
+    final amountController = TextEditingController();
+    final memoController = TextEditingController();
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -2412,6 +2416,7 @@ class _MainAppPageState extends State<MainAppPage> {
               ),
               const SizedBox(height: 8),
               TextField(
+                controller: amountController,
                 style: const TextStyle(
                   color: Color(0xFF00FF00),
                   fontFamily: 'Courier',
@@ -2419,6 +2424,39 @@ class _MainAppPageState extends State<MainAppPage> {
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
                   hintText: 'Enter amount in sats',
+                  hintStyle: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                  ),
+                  border: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Memo (optional):',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: memoController,
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+                decoration: const InputDecoration(
+                  hintText: 'Enter memo',
                   hintStyle: TextStyle(
                     color: Color(0xFF666666),
                     fontFamily: 'Courier',
@@ -2457,25 +2495,240 @@ class _MainAppPageState extends State<MainAppPage> {
               ),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                // TODO: Create lightning invoice
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Lightning invoice creation coming soon',
-                      style: TextStyle(
-                        color: Color(0xFF00FF00),
-                        fontFamily: 'Courier',
+              onPressed: () async {
+                final amountText = amountController.text.trim();
+                final memo = memoController.text.trim();
+                
+                if (amountText.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Please enter an amount',
+                        style: TextStyle(
+                          color: Color(0xFFFF6B6B),
+                          fontFamily: 'Courier',
+                        ),
                       ),
+                      backgroundColor: Color(0xFF1A1A1A),
+                      duration: Duration(seconds: 2),
                     ),
-                    backgroundColor: Color(0xFF1A1A1A),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
+                  );
+                  return;
+                }
+                
+                final amount = int.tryParse(amountText);
+                if (amount == null || amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Please enter a valid amount',
+                        style: TextStyle(
+                          color: Color(0xFFFF6B6B),
+                          fontFamily: 'Courier',
+                        ),
+                      ),
+                      backgroundColor: Color(0xFF1A1A1A),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                  return;
+                }
+                
+                Navigator.of(context).pop();
+                await _createLightningInvoice(amount, memo.isEmpty ? null : memo);
               },
               child: const Text(
                 'Create Invoice',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Create a lightning invoice
+  Future<void> _createLightningInvoice(int amount, String? memo) async {
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1A1A1A),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF00)),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Creating lightning invoice...',
+                  style: const TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      // Get database directory
+      final directory = await getApplicationDocumentsDirectory();
+      final databaseDir = directory.path;
+
+      // Get the first mint URL (for now, we'll use the first available mint)
+      final mints = await listMints();
+      if (mints.isEmpty) {
+        Navigator.of(context).pop(); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No mints available. Please add a mint first.',
+              style: TextStyle(
+                color: Color(0xFFFF6B6B),
+                fontFamily: 'Courier',
+              ),
+            ),
+            backgroundColor: Color(0xFF1A1A1A),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+
+      // Use the first mint
+      // Extract mint URL from format "mint_url:unit" (e.g., "http://127.0.0.1:3338:sat")
+      final mintString = mints.first;
+      final lastColonIndex = mintString.lastIndexOf(':');
+      final mintUrl = lastColonIndex != -1 
+          ? mintString.substring(0, lastColonIndex)
+          : mintString;
+      
+      print('Creating lightning invoice for mint: $mintUrl');
+
+      // Create lightning invoice
+      final invoiceResponse = await createLightningInvoice(
+        mintUrl: mintUrl,
+        amount: BigInt.from(amount),
+        memo: memo,
+        databaseDir: databaseDir,
+      );
+
+      // Parse the JSON response
+      final responseData = jsonDecode(invoiceResponse);
+      final invoice = responseData['invoice'] as String;
+      final quoteId = responseData['quote_id'] as String;
+      final invoiceAmount = responseData['amount'] as int;
+
+      Navigator.of(context).pop(); // Close loading dialog
+
+      // Show invoice dialog with correct amount
+      _showInvoiceDialog(invoice, invoiceAmount, memo, quoteId);
+    } catch (e) {
+      Navigator.of(context).pop(); // Close loading dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to create lightning invoice: $e',
+            style: const TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: const Color(0xFF1A1A1A),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  /// Show lightning invoice dialog
+  void _showInvoiceDialog(String invoice, int amount, String? memo, String quoteId) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Lightning Invoice',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Amount: $amount sats',
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (memo != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Memo: $memo',
+                  style: const TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              const Text(
+                'Invoice:',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFF00FF00)),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: SelectableText(
+                  invoice,
+                  style: const TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Share this invoice with the sender to receive payment.',
+                style: TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Close',
                 style: TextStyle(
                   color: Color(0xFF00FF00),
                   fontFamily: 'Courier',
@@ -3521,6 +3774,167 @@ class _MainAppPageState extends State<MainAppPage> {
     );
   }
 
+  /// Start monitoring payment status for a lightning invoice
+  void _startPaymentStatusCheck(String quoteId, int amount) {
+    // Show monitoring dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Monitoring Payment',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF00)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Waiting for payment of $amount sats...',
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    // Start periodic payment checking
+    _checkPaymentStatusPeriodically(quoteId, amount);
+  }
+
+  /// Check payment status periodically
+  void _checkPaymentStatusPeriodically(String quoteId, int amount) async {
+    const checkInterval = Duration(seconds: 5); // Check every 5 seconds
+    const maxChecks = 60; // Maximum 5 minutes of checking
+    
+    for (int i = 0; i < maxChecks; i++) {
+      await Future.delayed(checkInterval);
+      
+      try {
+        // Get database directory
+        final directory = await getApplicationDocumentsDirectory();
+        final databaseDir = directory.path;
+
+        // Get the first mint URL
+        final mints = await listMints();
+        if (mints.isEmpty) {
+          _showPaymentError('No mints available');
+          return;
+        }
+
+        // Extract mint URL from format "mint_url:unit"
+        final mintString = mints.first;
+        final lastColonIndex = mintString.lastIndexOf(':');
+        final mintUrl = lastColonIndex != -1 
+            ? mintString.substring(0, lastColonIndex)
+            : mintString;
+
+        // Check payment status
+        final isPaid = await checkLightningInvoiceStatus(
+          mintUrl: mintUrl,
+          quoteId: quoteId,
+          databaseDir: databaseDir,
+        );
+
+        if (isPaid) {
+          // Payment received! Mint the tokens
+          Navigator.of(context).pop(); // Close monitoring dialog
+          
+          await _mintTokensFromInvoice(mintUrl, quoteId, databaseDir, amount);
+          return;
+        }
+        
+        print('Payment check ${i + 1}/$maxChecks: Not paid yet');
+        
+      } catch (e) {
+        print('Error checking payment status: $e');
+        if (i == maxChecks - 1) {
+          _showPaymentError('Failed to check payment status: $e');
+        }
+      }
+    }
+    
+    // Timeout reached
+    Navigator.of(context).pop(); // Close monitoring dialog
+    _showPaymentError('Payment timeout - please try again');
+  }
+
+  /// Mint tokens from a paid lightning invoice
+  Future<void> _mintTokensFromInvoice(String mintUrl, String quoteId, String databaseDir, int amount) async {
+    try {
+      // Show minting dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1A1A1A),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF00)),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Minting tokens...',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      // Mint tokens from the paid invoice
+      final result = await mintFromLightningInvoice(
+        mintUrl: mintUrl,
+        quoteId: quoteId,
+        databaseDir: databaseDir,
+      );
+
+      Navigator.of(context).pop(); // Close minting dialog
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Payment received! $result',
+            style: const TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: const Color(0xFF1A1A1A),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      // Refresh wallet balance
+      setState(() {});
+
+    } catch (e) {
+      Navigator.of(context).pop(); // Close minting dialog
+      _showPaymentError('Failed to mint tokens: $e');
+    }
+  }
+
   void _payLightningInvoice(String invoice) {
     if (invoice.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -3545,7 +3959,7 @@ class _MainAppPageState extends State<MainAppPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Processing lightning payment...',
+          'Lightning payment feature coming soon!',
           style: TextStyle(
             color: Color(0xFF00FF00),
             fontFamily: 'Courier',
@@ -3554,6 +3968,45 @@ class _MainAppPageState extends State<MainAppPage> {
         backgroundColor: Color(0xFF1A1A1A),
         duration: Duration(seconds: 2),
       ),
+    );
+  }
+
+  /// Show payment error dialog
+  void _showPaymentError(String error) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Payment Error',
+            style: TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Text(
+            error,
+            style: const TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'OK',
+                style: TextStyle(
+                  color: Color(0xFFFF6B6B),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

@@ -216,6 +216,41 @@ bool validateMnemonicPhrase({required String mnemonicPhrase}) => RustLib
     .api
     .crateApiCashuValidateMnemonicPhrase(mnemonicPhrase: mnemonicPhrase);
 
+/// Create a lightning invoice for receiving payment
+String createLightningInvoice({
+  required String mintUrl,
+  required BigInt amount,
+  String? memo,
+  required String databaseDir,
+}) => RustLib.instance.api.crateApiCashuCreateLightningInvoice(
+  mintUrl: mintUrl,
+  amount: amount,
+  memo: memo,
+  databaseDir: databaseDir,
+);
+
+/// Check if a lightning invoice has been paid
+bool checkLightningInvoiceStatus({
+  required String mintUrl,
+  required String quoteId,
+  required String databaseDir,
+}) => RustLib.instance.api.crateApiCashuCheckLightningInvoiceStatus(
+  mintUrl: mintUrl,
+  quoteId: quoteId,
+  databaseDir: databaseDir,
+);
+
+/// Mint tokens from a paid lightning invoice
+String mintFromLightningInvoice({
+  required String mintUrl,
+  required String quoteId,
+  required String databaseDir,
+}) => RustLib.instance.api.crateApiCashuMintFromLightningInvoice(
+  mintUrl: mintUrl,
+  quoteId: quoteId,
+  databaseDir: databaseDir,
+);
+
 /// Cashu proof structure for FFI
 class CashuProof {
   final String id;

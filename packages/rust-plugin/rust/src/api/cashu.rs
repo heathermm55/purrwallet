@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
+use serde_json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::str::FromStr;
 
-use cdk::nuts::{CurrencyUnit, Token, Proof, Id, SecretKey, PublicKey};
+use cdk::nuts::{CurrencyUnit, Token, Proof, Id, SecretKey, PublicKey, ProofsMethods};
 use cdk::secret::Secret;
 use cdk::amount::{Amount, SplitTarget};
 use cdk::wallet::{Wallet, MultiMintWallet, SendOptions, ReceiveOptions, WalletBuilder};
@@ -132,7 +133,7 @@ pub fn init_multi_mint_wallet(database_dir: String, seed_hex: String) -> Result<
             .map_err(|e| format!("Failed to create SQLite store: {}", e))?;
 
         // Try to load existing wallets from database
-        let existing_wallets = load_wallets_from_database(&localstore).await?;
+        let existing_wallets = load_wallets_from_database(&localstore, &seed).await?;
 
         let multi_mint_wallet = MultiMintWallet::new(
             Arc::new(localstore),
@@ -168,7 +169,7 @@ fn parse_seed_from_hex(seed_hex: &str) -> Result<[u8; 32], String> {
 }
 
 /// Load existing wallets from database
-async fn load_wallets_from_database(localstore: &WalletSqliteDatabase) -> Result<Vec<Wallet>, String> {
+async fn load_wallets_from_database(localstore: &WalletSqliteDatabase, seed: &[u8]) -> Result<Vec<Wallet>, String> {
     // Get all mints from the database
     let mints = localstore.get_mints().await
         .map_err(|e| format!("Failed to get mints from database: {}", e))?;
@@ -184,11 +185,12 @@ async fn load_wallets_from_database(localstore: &WalletSqliteDatabase) -> Result
         };
 
         for unit in units {
-            // Try to create wallet from existing data
+            // Try to create wallet from existing data with the same seed
             match WalletBuilder::new()
                 .mint_url(mint_url.clone())
                 .unit(unit.clone())
                 .localstore(Arc::new(localstore.clone()))
+                .seed(seed)
                 .build()
             {
                 Ok(wallet) => {
@@ -600,10 +602,10 @@ pub fn get_mint_info(mint_url: String, unit: String, _database_dir: String) -> R
 /// Send tokens
 #[flutter_rust_bridge::frb(sync)]
 pub fn send_tokens(mint_url: String, unit: String, amount: u64, memo: Option<String>, database_dir: String) -> Result<String, String> {
-    let rt = tokio::runtime::Runtime::new().map_err(|e| format!("Failed to create runtime: {}", e))?;
-    
-    rt.block_on(async {
-        let seed = random::<[u8; 32]>();
+    execute_async(async {
+        let mint_url_parsed = MintUrl::from_str(&mint_url)
+            .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
         let currency_unit = match unit.as_str() {
             "sat" => CurrencyUnit::Sat,
             "usd" => CurrencyUnit::Usd,
@@ -611,20 +613,19 @@ pub fn send_tokens(mint_url: String, unit: String, amount: u64, memo: Option<Str
             _ => return Err("Unsupported currency unit".to_string()),
         };
 
-        let db_path = get_database_path(&database_dir, &mint_url);
-        std::fs::create_dir_all(db_path.parent().unwrap())
-            .map_err(|e| format!("Failed to create database directory: {}", e))?;
-        
-        let localstore = WalletSqliteDatabase::new(db_path.to_str().unwrap()).await
-            .map_err(|e| format!("Failed to create SQLite store: {}", e))?;
+        // Use the global MULTI_MINT_WALLET
+        let wallet_guard = MULTI_MINT_WALLET.read().await;
+        let multi_mint_wallet = wallet_guard.as_ref()
+            .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet = Wallet::new(
-            &mint_url,
-            currency_unit,
-            Arc::new(localstore),
-            &seed,
-            None,
-        ).map_err(|e| format!("Failed to create wallet: {}", e))?;
+        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
+        
+        if !multi_mint_wallet.has(&wallet_key).await {
+            return Err("Mint not found in wallet".to_string());
+        }
+
+        let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
+            .ok_or("Failed to get wallet")?;
 
         let send_amount = Amount::from(amount);
         let send_options = SendOptions::default();
@@ -643,10 +644,10 @@ pub fn send_tokens(mint_url: String, unit: String, amount: u64, memo: Option<Str
 /// Receive tokens
 #[flutter_rust_bridge::frb(sync)]
 pub fn receive_tokens(mint_url: String, unit: String, token: String, _memo: Option<String>, database_dir: String) -> Result<u64, String> {
-    let rt = tokio::runtime::Runtime::new().map_err(|e| format!("Failed to create runtime: {}", e))?;
-    
-    rt.block_on(async {
-        let seed = random::<[u8; 32]>();
+    execute_async(async {
+        let mint_url_parsed = MintUrl::from_str(&mint_url)
+            .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
         let currency_unit = match unit.as_str() {
             "sat" => CurrencyUnit::Sat,
             "usd" => CurrencyUnit::Usd,
@@ -654,20 +655,19 @@ pub fn receive_tokens(mint_url: String, unit: String, token: String, _memo: Opti
             _ => return Err("Unsupported currency unit".to_string()),
         };
 
-        let db_path = get_database_path(&database_dir, &mint_url);
-        std::fs::create_dir_all(db_path.parent().unwrap())
-            .map_err(|e| format!("Failed to create database directory: {}", e))?;
-        
-        let localstore = WalletSqliteDatabase::new(db_path.to_str().unwrap()).await
-            .map_err(|e| format!("Failed to create SQLite store: {}", e))?;
+        // Use the global MULTI_MINT_WALLET
+        let wallet_guard = MULTI_MINT_WALLET.read().await;
+        let multi_mint_wallet = wallet_guard.as_ref()
+            .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet = Wallet::new(
-            &mint_url,
-            currency_unit,
-            Arc::new(localstore),
-            &seed,
-            None,
-        ).map_err(|e| format!("Failed to create wallet: {}", e))?;
+        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
+        
+        if !multi_mint_wallet.has(&wallet_key).await {
+            return Err("Mint not found in wallet".to_string());
+        }
+
+        let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
+            .ok_or("Failed to get wallet")?;
 
         let _cashu_token = Token::from_str(&token)
             .map_err(|e| format!("Failed to parse token: {}", e))?;
@@ -683,10 +683,10 @@ pub fn receive_tokens(mint_url: String, unit: String, token: String, _memo: Opti
 /// Create mint quote
 #[flutter_rust_bridge::frb(sync)]
 pub fn create_mint_quote(mint_url: String, unit: String, amount: u64, database_dir: String) -> Result<HashMap<String, String>, String> {
-    let rt = tokio::runtime::Runtime::new().map_err(|e| format!("Failed to create runtime: {}", e))?;
-    
-    rt.block_on(async {
-        let seed = random::<[u8; 32]>();
+    execute_async(async {
+        let mint_url_parsed = MintUrl::from_str(&mint_url)
+            .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
         let currency_unit = match unit.as_str() {
             "sat" => CurrencyUnit::Sat,
             "usd" => CurrencyUnit::Usd,
@@ -694,20 +694,19 @@ pub fn create_mint_quote(mint_url: String, unit: String, amount: u64, database_d
             _ => return Err("Unsupported currency unit".to_string()),
         };
 
-        let db_path = get_database_path(&database_dir, &mint_url);
-        std::fs::create_dir_all(db_path.parent().unwrap())
-            .map_err(|e| format!("Failed to create database directory: {}", e))?;
-        
-        let localstore = WalletSqliteDatabase::new(db_path.to_str().unwrap()).await
-            .map_err(|e| format!("Failed to create SQLite store: {}", e))?;
+        // Use the global MULTI_MINT_WALLET
+        let wallet_guard = MULTI_MINT_WALLET.read().await;
+        let multi_mint_wallet = wallet_guard.as_ref()
+            .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet = Wallet::new(
-            &mint_url,
-            currency_unit,
-            Arc::new(localstore),
-            &seed,
-            None,
-        ).map_err(|e| format!("Failed to create wallet: {}", e))?;
+        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
+        
+        if !multi_mint_wallet.has(&wallet_key).await {
+            return Err("Mint not found in wallet".to_string());
+        }
+
+        let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
+            .ok_or("Failed to get wallet")?;
 
         let mint_amount = Amount::from(amount);
         let quote = wallet.mint_quote(mint_amount, None).await
@@ -726,10 +725,10 @@ pub fn create_mint_quote(mint_url: String, unit: String, amount: u64, database_d
 /// Check mint quote status
 #[flutter_rust_bridge::frb(sync)]
 pub fn check_mint_quote_status(mint_url: String, unit: String, quote_id: String, database_dir: String) -> Result<String, String> {
-    let rt = tokio::runtime::Runtime::new().map_err(|e| format!("Failed to create runtime: {}", e))?;
-    
-    rt.block_on(async {
-        let seed = random::<[u8; 32]>();
+    execute_async(async {
+        let mint_url_parsed = MintUrl::from_str(&mint_url)
+            .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
         let currency_unit = match unit.as_str() {
             "sat" => CurrencyUnit::Sat,
             "usd" => CurrencyUnit::Usd,
@@ -737,20 +736,19 @@ pub fn check_mint_quote_status(mint_url: String, unit: String, quote_id: String,
             _ => return Err("Unsupported currency unit".to_string()),
         };
 
-        let db_path = get_database_path(&database_dir, &mint_url);
-        std::fs::create_dir_all(db_path.parent().unwrap())
-            .map_err(|e| format!("Failed to create database directory: {}", e))?;
-        
-        let localstore = WalletSqliteDatabase::new(db_path.to_str().unwrap()).await
-            .map_err(|e| format!("Failed to create SQLite store: {}", e))?;
+        // Use the global MULTI_MINT_WALLET
+        let wallet_guard = MULTI_MINT_WALLET.read().await;
+        let multi_mint_wallet = wallet_guard.as_ref()
+            .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet = Wallet::new(
-            &mint_url,
-            currency_unit,
-            Arc::new(localstore),
-            &seed,
-            None,
-        ).map_err(|e| format!("Failed to create wallet: {}", e))?;
+        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
+        
+        if !multi_mint_wallet.has(&wallet_key).await {
+            return Err("Mint not found in wallet".to_string());
+        }
+
+        let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
+            .ok_or("Failed to get wallet")?;
 
         let status = wallet.mint_quote_state(&quote_id).await
             .map_err(|e| format!("Failed to check quote status: {}", e))?;
@@ -762,10 +760,10 @@ pub fn check_mint_quote_status(mint_url: String, unit: String, quote_id: String,
 /// Mint tokens from quote
 #[flutter_rust_bridge::frb(sync)]
 pub fn mint_from_quote(mint_url: String, unit: String, quote_id: String, database_dir: String) -> Result<u64, String> {
-    let rt = tokio::runtime::Runtime::new().map_err(|e| format!("Failed to create runtime: {}", e))?;
-    
-    rt.block_on(async {
-        let seed = random::<[u8; 32]>();
+    execute_async(async {
+        let mint_url_parsed = MintUrl::from_str(&mint_url)
+            .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
         let currency_unit = match unit.as_str() {
             "sat" => CurrencyUnit::Sat,
             "usd" => CurrencyUnit::Usd,
@@ -773,20 +771,19 @@ pub fn mint_from_quote(mint_url: String, unit: String, quote_id: String, databas
             _ => return Err("Unsupported currency unit".to_string()),
         };
 
-        let db_path = get_database_path(&database_dir, &mint_url);
-        std::fs::create_dir_all(db_path.parent().unwrap())
-            .map_err(|e| format!("Failed to create database directory: {}", e))?;
-        
-        let localstore = WalletSqliteDatabase::new(db_path.to_str().unwrap()).await
-            .map_err(|e| format!("Failed to create SQLite store: {}", e))?;
+        // Use the global MULTI_MINT_WALLET
+        let wallet_guard = MULTI_MINT_WALLET.read().await;
+        let multi_mint_wallet = wallet_guard.as_ref()
+            .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet = Wallet::new(
-            &mint_url,
-            currency_unit,
-            Arc::new(localstore),
-            &seed,
-            None,
-        ).map_err(|e| format!("Failed to create wallet: {}", e))?;
+        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
+        
+        if !multi_mint_wallet.has(&wallet_key).await {
+            return Err("Mint not found in wallet".to_string());
+        }
+
+        let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
+            .ok_or("Failed to get wallet")?;
 
         let split_target = SplitTarget::default();
         let minted_proofs = wallet.mint(&quote_id, split_target, None).await
@@ -804,10 +801,10 @@ pub fn mint_from_quote(mint_url: String, unit: String, quote_id: String, databas
 /// Get wallet proofs
 #[flutter_rust_bridge::frb(sync)]
 pub fn get_wallet_proofs(mint_url: String, unit: String, database_dir: String) -> Result<Vec<CashuProof>, String> {
-    let rt = tokio::runtime::Runtime::new().map_err(|e| format!("Failed to create runtime: {}", e))?;
-    
-    rt.block_on(async {
-        let seed = random::<[u8; 32]>();
+    execute_async(async {
+        let mint_url_parsed = MintUrl::from_str(&mint_url)
+            .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
         let currency_unit = match unit.as_str() {
             "sat" => CurrencyUnit::Sat,
             "usd" => CurrencyUnit::Usd,
@@ -815,20 +812,19 @@ pub fn get_wallet_proofs(mint_url: String, unit: String, database_dir: String) -
             _ => return Err("Unsupported currency unit".to_string()),
         };
 
-        let db_path = get_database_path(&database_dir, &mint_url);
-        std::fs::create_dir_all(db_path.parent().unwrap())
-            .map_err(|e| format!("Failed to create database directory: {}", e))?;
-        
-        let localstore = WalletSqliteDatabase::new(db_path.to_str().unwrap()).await
-            .map_err(|e| format!("Failed to create SQLite store: {}", e))?;
+        // Use the global MULTI_MINT_WALLET
+        let wallet_guard = MULTI_MINT_WALLET.read().await;
+        let multi_mint_wallet = wallet_guard.as_ref()
+            .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet = Wallet::new(
-            &mint_url,
-            currency_unit,
-            Arc::new(localstore),
-            &seed,
-            None,
-        ).map_err(|e| format!("Failed to create wallet: {}", e))?;
+        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
+        
+        if !multi_mint_wallet.has(&wallet_key).await {
+            return Err("Mint not found in wallet".to_string());
+        }
+
+        let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
+            .ok_or("Failed to get wallet")?;
 
         let proofs = wallet.get_unspent_proofs().await
             .map_err(|e| format!("Failed to get proofs: {}", e))?;
@@ -844,10 +840,10 @@ pub fn get_wallet_proofs(mint_url: String, unit: String, database_dir: String) -
 /// Get wallet transactions
 #[flutter_rust_bridge::frb(sync)]
 pub fn get_wallet_transactions(mint_url: String, unit: String, database_dir: String) -> Result<Vec<TransactionInfo>, String> {
-    let rt = tokio::runtime::Runtime::new().map_err(|e| format!("Failed to create runtime: {}", e))?;
-    
-    rt.block_on(async {
-        let seed = random::<[u8; 32]>();
+    execute_async(async {
+        let mint_url_parsed = MintUrl::from_str(&mint_url)
+            .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
         let currency_unit = match unit.as_str() {
             "sat" => CurrencyUnit::Sat,
             "usd" => CurrencyUnit::Usd,
@@ -855,20 +851,19 @@ pub fn get_wallet_transactions(mint_url: String, unit: String, database_dir: Str
             _ => return Err("Unsupported currency unit".to_string()),
         };
 
-        let db_path = get_database_path(&database_dir, &mint_url);
-        std::fs::create_dir_all(db_path.parent().unwrap())
-            .map_err(|e| format!("Failed to create database directory: {}", e))?;
-        
-        let localstore = WalletSqliteDatabase::new(db_path.to_str().unwrap()).await
-            .map_err(|e| format!("Failed to create SQLite store: {}", e))?;
+        // Use the global MULTI_MINT_WALLET
+        let wallet_guard = MULTI_MINT_WALLET.read().await;
+        let multi_mint_wallet = wallet_guard.as_ref()
+            .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet = Wallet::new(
-            &mint_url,
-            currency_unit,
-            Arc::new(localstore),
-            &seed,
-            None,
-        ).map_err(|e| format!("Failed to create wallet: {}", e))?;
+        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
+        
+        if !multi_mint_wallet.has(&wallet_key).await {
+            return Err("Mint not found in wallet".to_string());
+        }
+
+        let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
+            .ok_or("Failed to get wallet")?;
 
         let transactions = wallet.list_transactions(None).await
             .map_err(|e| format!("Failed to get transactions: {}", e))?;
@@ -1021,4 +1016,130 @@ pub fn validate_mnemonic_phrase(mnemonic_phrase: String) -> Result<bool, String>
         Ok(_) => Ok(true),
         Err(_) => Ok(false),
     }
+}
+
+/// Create a lightning invoice for receiving payment
+#[flutter_rust_bridge::frb(sync)]
+pub fn create_lightning_invoice(
+    mint_url: String,
+    amount: u64,
+    memo: Option<String>,
+    database_dir: String,
+) -> Result<String, String> {
+    execute_async(async {
+        println!("Creating lightning invoice for mint_url: {}", mint_url);
+        println!("Amount: {}, memo: {:?}", amount, memo);
+        
+        let mint_url_parsed = MintUrl::from_str(&mint_url)
+            .map_err(|e| format!("Invalid mint URL '{}': {}", mint_url, e))?;
+
+        // Use the global MULTI_MINT_WALLET
+        let wallet_guard = MULTI_MINT_WALLET.read().await;
+        let multi_mint_wallet = wallet_guard.as_ref()
+            .ok_or("MultiMintWallet not initialized")?;
+
+        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
+        
+        if !multi_mint_wallet.has(&wallet_key).await {
+            return Err("Mint not found in wallet".to_string());
+        }
+
+        let wallet_instance = multi_mint_wallet.get_wallet(&wallet_key).await
+            .ok_or("Failed to get wallet")?;
+
+        // Create mint quote for lightning invoice
+        let mint_amount = Amount::from(amount);
+        
+        let quote = wallet_instance.mint_quote(mint_amount, memo).await
+            .map_err(|e| format!("Failed to get mint quote: {}", e))?;
+
+        // Return both the invoice request and the quote ID for tracking
+        let response = serde_json::json!({
+            "invoice": quote.request,
+            "quote_id": quote.id,
+            "amount": amount
+        });
+
+        Ok(response.to_string())
+    })
+}
+
+/// Check if a lightning invoice has been paid
+#[flutter_rust_bridge::frb(sync)]
+pub fn check_lightning_invoice_status(
+    mint_url: String,
+    quote_id: String,
+    database_dir: String,
+) -> Result<bool, String> {
+    execute_async(async {
+        println!("Checking lightning invoice status for quote_id: {}", quote_id);
+        
+        let mint_url_parsed = MintUrl::from_str(&mint_url)
+            .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
+        // Use the global MULTI_MINT_WALLET
+        let wallet_guard = MULTI_MINT_WALLET.read().await;
+        let multi_mint_wallet = wallet_guard.as_ref()
+            .ok_or("MultiMintWallet not initialized")?;
+
+        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
+        
+        if !multi_mint_wallet.has(&wallet_key).await {
+            return Err("Mint not found in wallet".to_string());
+        }
+
+        let wallet_instance = multi_mint_wallet.get_wallet(&wallet_key).await
+            .ok_or("Failed to get wallet")?;
+
+        // Check quote status using the correct CDK API
+        let quote_response = wallet_instance.mint_quote_state(&quote_id).await
+            .map_err(|e| format!("Failed to check quote status: {}", e))?;
+
+        println!("Quote state: {:?}", quote_response.state);
+        
+        // Return true if the quote is paid
+        Ok(matches!(quote_response.state, cdk::nuts::MintQuoteState::Paid))
+    })
+}
+
+/// Mint tokens from a paid lightning invoice
+#[flutter_rust_bridge::frb(sync)]
+pub fn mint_from_lightning_invoice(
+    mint_url: String,
+    quote_id: String,
+    database_dir: String,
+) -> Result<String, String> {
+    execute_async(async {
+        println!("Minting tokens from lightning invoice quote_id: {}", quote_id);
+        
+        let mint_url_parsed = MintUrl::from_str(&mint_url)
+            .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
+        // Use the global MULTI_MINT_WALLET
+        let wallet_guard = MULTI_MINT_WALLET.read().await;
+        let multi_mint_wallet = wallet_guard.as_ref()
+            .ok_or("MultiMintWallet not initialized")?;
+
+        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
+        
+        if !multi_mint_wallet.has(&wallet_key).await {
+            return Err("Mint not found in wallet".to_string());
+        }
+
+        let wallet_instance = multi_mint_wallet.get_wallet(&wallet_key).await
+            .ok_or("Failed to get wallet")?;
+
+        // Mint tokens from the paid quote using the correct CDK API
+        let proofs = wallet_instance.mint(&quote_id, cdk::amount::SplitTarget::default(), None).await
+            .map_err(|e| format!("Failed to mint from quote: {}", e))?;
+
+        let total_amount = proofs.total_amount()
+            .map_err(|e| format!("Failed to calculate total amount: {}", e))?;
+
+        println!("Successfully minted {} tokens", proofs.len());
+        println!("Total amount: {}", total_amount);
+        
+        // Return success message with token count and amount
+        Ok(format!("Successfully minted {} tokens, total amount: {}", proofs.len(), total_amount))
+    })
 }

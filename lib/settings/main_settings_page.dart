@@ -295,9 +295,9 @@ class SettingsPage extends StatelessWidget {
               if (snapshot.hasError) {
                 return Text(
                   'Error: ${snapshot.error}',
-                  style: const TextStyle(
-                    color: Color(0xFFFF6B6B),
-                    fontFamily: 'Courier',
+              style: const TextStyle(
+                color: Color(0xFFFF6B6B),
+                fontFamily: 'Courier',
                   ),
                 );
               }

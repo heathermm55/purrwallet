@@ -37,7 +37,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.7.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1710181767;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1608071519;
 
 // Section: executor
 
@@ -71,6 +71,42 @@ fn wire__crate__api__cashu__add_mint_impl(
             deserializer.end();
             transform_result_sse::<_, String>((move || {
                 let output_ok = crate::api::cashu::add_mint(api_mint_url, api_unit)?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__cashu__check_lightning_invoice_status_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "check_lightning_invoice_status",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_mint_url = <String>::sse_decode(&mut deserializer);
+            let api_quote_id = <String>::sse_decode(&mut deserializer);
+            let api_database_dir = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, String>((move || {
+                let output_ok = crate::api::cashu::check_lightning_invoice_status(
+                    api_mint_url,
+                    api_quote_id,
+                    api_database_dir,
+                )?;
                 Ok(output_ok)
             })())
         },
@@ -144,6 +180,44 @@ fn wire__crate__api__cashu__create_cashu_proof_impl(
                 let output_ok = Result::<_, ()>::Ok(crate::api::cashu::create_cashu_proof(
                     api_id, api_amount, api_secret, api_c,
                 ))?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__cashu__create_lightning_invoice_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "create_lightning_invoice",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_mint_url = <String>::sse_decode(&mut deserializer);
+            let api_amount = <u64>::sse_decode(&mut deserializer);
+            let api_memo = <Option<String>>::sse_decode(&mut deserializer);
+            let api_database_dir = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, String>((move || {
+                let output_ok = crate::api::cashu::create_lightning_invoice(
+                    api_mint_url,
+                    api_amount,
+                    api_memo,
+                    api_database_dir,
+                )?;
                 Ok(output_ok)
             })())
         },
@@ -658,6 +732,42 @@ fn wire__crate__api__cashu__load_existing_wallets_impl(
             deserializer.end();
             transform_result_sse::<_, String>((move || {
                 let output_ok = crate::api::cashu::load_existing_wallets()?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__cashu__mint_from_lightning_invoice_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "mint_from_lightning_invoice",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_mint_url = <String>::sse_decode(&mut deserializer);
+            let api_quote_id = <String>::sse_decode(&mut deserializer);
+            let api_database_dir = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, String>((move || {
+                let output_ok = crate::api::cashu::mint_from_lightning_invoice(
+                    api_mint_url,
+                    api_quote_id,
+                    api_database_dir,
+                )?;
                 Ok(output_ok)
             })())
         },
@@ -1662,7 +1772,7 @@ fn pde_ffi_dispatcher_primary_impl(
 ) {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        16 => wire__crate__api__nostr__init_app_impl(port, ptr, rust_vec_len, data_len),
+        18 => wire__crate__api__nostr__init_app_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -1676,45 +1786,54 @@ fn pde_ffi_dispatcher_sync_impl(
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
         1 => wire__crate__api__cashu__add_mint_impl(ptr, rust_vec_len, data_len),
-        2 => wire__crate__api__cashu__check_mint_quote_status_impl(ptr, rust_vec_len, data_len),
-        3 => wire__crate__api__cashu__create_cashu_proof_impl(ptr, rust_vec_len, data_len),
-        4 => wire__crate__api__cashu__create_mint_quote_impl(ptr, rust_vec_len, data_len),
-        5 => wire__crate__api__cashu__create_wallet_impl(ptr, rust_vec_len, data_len),
-        6 => wire__crate__api__nostr__generate_keys_impl(ptr, rust_vec_len, data_len),
-        7 => wire__crate__api__nostr__generate_keys_with_bech32_impl(ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__cashu__generate_mnemonic_phrase_impl(ptr, rust_vec_len, data_len),
-        9 => wire__crate__api__cashu__get_mint_info_impl(ptr, rust_vec_len, data_len),
-        10 => {
+        2 => wire__crate__api__cashu__check_lightning_invoice_status_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        3 => wire__crate__api__cashu__check_mint_quote_status_impl(ptr, rust_vec_len, data_len),
+        4 => wire__crate__api__cashu__create_cashu_proof_impl(ptr, rust_vec_len, data_len),
+        5 => wire__crate__api__cashu__create_lightning_invoice_impl(ptr, rust_vec_len, data_len),
+        6 => wire__crate__api__cashu__create_mint_quote_impl(ptr, rust_vec_len, data_len),
+        7 => wire__crate__api__cashu__create_wallet_impl(ptr, rust_vec_len, data_len),
+        8 => wire__crate__api__nostr__generate_keys_impl(ptr, rust_vec_len, data_len),
+        9 => wire__crate__api__nostr__generate_keys_with_bech32_impl(ptr, rust_vec_len, data_len),
+        10 => wire__crate__api__cashu__generate_mnemonic_phrase_impl(ptr, rust_vec_len, data_len),
+        11 => wire__crate__api__cashu__get_mint_info_impl(ptr, rust_vec_len, data_len),
+        12 => {
             wire__crate__api__nostr__get_public_key_from_private_impl(ptr, rust_vec_len, data_len)
         }
-        11 => wire__crate__api__cashu__get_wallet_balance_impl(ptr, rust_vec_len, data_len),
-        12 => wire__crate__api__cashu__get_wallet_info_impl(ptr, rust_vec_len, data_len),
-        13 => wire__crate__api__cashu__get_wallet_proofs_impl(ptr, rust_vec_len, data_len),
-        14 => wire__crate__api__cashu__get_wallet_transactions_impl(ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__nostr__greet_impl(ptr, rust_vec_len, data_len),
-        17 => wire__crate__api__cashu__init_multi_mint_wallet_impl(ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__cashu__list_mints_impl(ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__cashu__load_existing_wallets_impl(ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__cashu__mint_from_quote_impl(ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__cashu__mnemonic_to_seed_hex_impl(ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__nostr__nip04_decrypt_impl(ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__nostr__nip04_encrypt_impl(ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__nostr__nip44_decrypt_impl(ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__nostr__nip44_encrypt_impl(ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__nostr__npub_to_public_key_impl(ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__nostr__nsec_to_secret_key_impl(ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__cashu__parse_cashu_token_impl(ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__nostr__public_key_to_npub_impl(ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__cashu__receive_tokens_impl(ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__cashu__remove_mint_impl(ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__nostr__secret_key_to_nsec_impl(ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__cashu__seed_hex_to_mnemonic_impl(ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__cashu__send_tokens_impl(ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__nostr__sign_event_impl(ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__cashu__validate_cashu_proof_impl(ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__cashu__validate_mnemonic_phrase_impl(ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__nostr__verify_event_impl(ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__cashu__wallet_exists_impl(ptr, rust_vec_len, data_len),
+        13 => wire__crate__api__cashu__get_wallet_balance_impl(ptr, rust_vec_len, data_len),
+        14 => wire__crate__api__cashu__get_wallet_info_impl(ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__cashu__get_wallet_proofs_impl(ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__cashu__get_wallet_transactions_impl(ptr, rust_vec_len, data_len),
+        17 => wire__crate__api__nostr__greet_impl(ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__cashu__init_multi_mint_wallet_impl(ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__cashu__list_mints_impl(ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__cashu__load_existing_wallets_impl(ptr, rust_vec_len, data_len),
+        22 => {
+            wire__crate__api__cashu__mint_from_lightning_invoice_impl(ptr, rust_vec_len, data_len)
+        }
+        23 => wire__crate__api__cashu__mint_from_quote_impl(ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__cashu__mnemonic_to_seed_hex_impl(ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__nostr__nip04_decrypt_impl(ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__nostr__nip04_encrypt_impl(ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__nostr__nip44_decrypt_impl(ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__nostr__nip44_encrypt_impl(ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__nostr__npub_to_public_key_impl(ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__nostr__nsec_to_secret_key_impl(ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__cashu__parse_cashu_token_impl(ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__nostr__public_key_to_npub_impl(ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__cashu__receive_tokens_impl(ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__cashu__remove_mint_impl(ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__nostr__secret_key_to_nsec_impl(ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__cashu__seed_hex_to_mnemonic_impl(ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__cashu__send_tokens_impl(ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__nostr__sign_event_impl(ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__cashu__validate_cashu_proof_impl(ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__cashu__validate_mnemonic_phrase_impl(ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__nostr__verify_event_impl(ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__cashu__wallet_exists_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
