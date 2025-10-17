@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:rust_plugin/src/rust/api/cashu.dart';
 import 'mints_page.dart';
 
 /// Main settings page with navigation to sub-settings
@@ -305,12 +306,13 @@ class SettingsPage extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                    '⚠️ Keep this seed phrase safe!',
+                    '⚠️ Keep this seed phrase safe!\nWrite it down and store it securely.',
                     style: TextStyle(
                       color: Color(0xFFFF6B6B),
                       fontFamily: 'Courier',
                       fontWeight: FontWeight.bold,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
                   SelectableText(
@@ -348,8 +350,13 @@ class SettingsPage extends StatelessWidget {
       final seedHex = await storage.read(key: 'cashu_wallet_seed');
 
       if (seedHex != null) {
-        // Convert hex to words (simplified - in real app you'd use proper BIP39)
-        return 'Seed phrase functionality coming soon\nHex: ${seedHex.substring(0, 16)}...';
+        // Convert hex to mnemonic using Rust function
+        try {
+          final mnemonic = await seedHexToMnemonic(seedHex: seedHex);
+          return mnemonic;
+        } catch (e) {
+          return 'Error converting seed to mnemonic: $e\nHex: ${seedHex.substring(0, 16)}...';
+        }
       } else {
         return 'No seed phrase found';
       }

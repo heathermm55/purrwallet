@@ -148,23 +148,22 @@ pub fn init_multi_mint_wallet(database_dir: String, seed_hex: String) -> Result<
 
 /// Parse seed from hex string
 fn parse_seed_from_hex(seed_hex: &str) -> Result<[u8; 32], String> {
-    if seed_hex.len() != 128 {
-        return Err("Seed must be 128 hex characters (64 bytes)".to_string());
+    // Accept both 64-byte (128 hex chars) and 32-byte (64 hex chars) seeds
+    let expected_lengths = [64, 128]; // 32 bytes or 64 bytes
+    if !expected_lengths.contains(&seed_hex.len()) {
+        return Err(format!("Seed must be 64 or 128 hex characters (32 or 64 bytes), got {}", seed_hex.len()));
     }
     
-    // BIP39 generates 64-byte seed, but we need 32-byte seed for MultiMintWallet
-    // Take the first 32 bytes (first 64 hex characters)
+    // Parse hex string to bytes
+    let seed_bytes = hex::decode(seed_hex)
+        .map_err(|e| format!("Invalid hex string: {}", e))?;
+    
+    // Take the first 32 bytes for MultiMintWallet
     let mut seed = [0u8; 32];
-    for (i, chunk) in seed_hex.as_bytes().chunks(2).enumerate() {
-        if i >= 32 {
-            break;
-        }
-        let hex_str = std::str::from_utf8(chunk)
-            .map_err(|_| "Invalid hex string")?;
-        seed[i] = u8::from_str_radix(hex_str, 16)
-            .map_err(|_| "Invalid hex character")?;
-    }
+    let bytes_to_copy = std::cmp::min(32, seed_bytes.len());
+    seed[..bytes_to_copy].copy_from_slice(&seed_bytes[..bytes_to_copy]);
     
+    println!("Parsed seed (first 8 bytes): {:?}", &seed[..8]);
     Ok(seed)
 }
 
@@ -966,7 +965,9 @@ pub fn mnemonic_to_seed_hex(mnemonic_phrase: String) -> Result<String, String> {
     let mnemonic = Mnemonic::from_str(&mnemonic_phrase)
         .map_err(|e| format!("Invalid mnemonic phrase: {}", e))?;
     let seed = mnemonic.to_seed_normalized("");
-    Ok(hex::encode(seed))
+    let seed_hex = hex::encode(seed);
+    
+    Ok(seed_hex)
 }
 
 /// Convert seed hex to mnemonic phrase (for verification/testing)
