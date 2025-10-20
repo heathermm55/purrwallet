@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:rust_plugin/src/rust/api/cashu.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'mint_info_page.dart';
 
 /// Mint detail management page with comprehensive mint operations
@@ -22,11 +25,15 @@ class _MintDetailPageState extends State<MintDetailPage> {
   bool isDefaultMint = false;
   String? mintInfo;
   bool isLoading = true;
+  int balance = 0;
+  bool isLoadingBalance = true;
 
   @override
   void initState() {
     super.initState();
     _loadMintInfo();
+    _loadBalance();
+    _loadMintSettings();
   }
 
   @override
@@ -80,7 +87,7 @@ class _MintDetailPageState extends State<MintDetailPage> {
       children: [
         _buildInfoRow('Mint', widget.mintUrl),
         _buildInfoRow('Unit', widget.unit.toUpperCase()),
-        _buildInfoRow('Balance', 'Loading...'), // TODO: Get actual balance
+        _buildInfoRow('Balance', isLoadingBalance ? 'Loading...' : '$balance sats'),
         _buildActionRow(
           'Show QR code',
           icon: Icons.qr_code,
@@ -100,11 +107,11 @@ class _MintDetailPageState extends State<MintDetailPage> {
         _buildSwitchRow(
           'Set as Default mint',
           value: isDefaultMint,
-          onChanged: (value) {
+          onChanged: (value) async {
             setState(() {
               isDefaultMint = value;
             });
-            // TODO: Save default mint preference
+            await _saveDefaultMint(value);
           },
         ),
         _buildActionRow(
@@ -297,6 +304,32 @@ class _MintDetailPageState extends State<MintDetailPage> {
     }
   }
 
+  void _loadBalance() async {
+    try {
+      // Get balance for this specific mint
+      final balances = await getAllBalances();
+      
+      // Find balance for this mint URL
+      int totalBalance = 0;
+      
+      for (var entry in balances.entries) {
+        if (entry.key.startsWith(widget.mintUrl)) {
+          totalBalance += entry.value.toInt();
+        }
+      }
+      
+      setState(() {
+        balance = totalBalance;
+        isLoadingBalance = false;
+      });
+    } catch (e) {
+      print('Failed to load balance: $e');
+      setState(() {
+        isLoadingBalance = false;
+      });
+    }
+  }
+
   void _showQRCode() {
     showDialog(
       context: context,
@@ -310,38 +343,92 @@ class _MintDetailPageState extends State<MintDetailPage> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Center(
-                child: Text(
-                  'QR Code\nPlaceholder',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontFamily: 'Courier',
+        content: SizedBox(
+          width: 300,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // QR Code
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1A1A),
+                    border: Border.all(color: const Color(0xFF00FF00), width: 2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: QrImageView(
+                    data: widget.mintUrl,
+                    version: QrVersions.auto,
+                    size: 200.0,
+                    backgroundColor: const Color(0xFF1A1A1A),
+                    foregroundColor: const Color(0xFF00FF00),
+                    errorCorrectionLevel: QrErrorCorrectLevel.H,
                   ),
                 ),
-              ),
+                const SizedBox(height: 24),
+                
+                // Mint URL (clickable to copy)
+                InkWell(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: widget.mintUrl));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Mint URL copied to clipboard',
+                          style: TextStyle(
+                            color: Color(0xFF00FF00),
+                            fontFamily: 'Courier',
+                          ),
+                        ),
+                        backgroundColor: Color(0xFF1A1A1A),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A2A2A),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF00FF00)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            widget.mintUrl,
+                            style: const TextStyle(
+                              color: Color(0xFF00FF00),
+                              fontFamily: 'Courier',
+                              fontSize: 10,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(
+                          Icons.copy,
+                          color: Color(0xFF00FF00),
+                          size: 16,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Tap to copy mint URL',
+                  style: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Text(
-              widget.mintUrl,
-              style: const TextStyle(
-                color: Color(0xFF666666),
-                fontFamily: 'Courier',
-                fontSize: 12,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+          ),
         ),
         actions: [
           TextButton(
@@ -409,10 +496,12 @@ class _MintDetailPageState extends State<MintDetailPage> {
             ),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
+              final newName = controller.text.trim().isEmpty ? null : controller.text.trim();
               setState(() {
-                customName = controller.text.trim().isEmpty ? null : controller.text.trim();
+                customName = newName;
               });
+              await _saveMintAlias(newName);
               Navigator.of(context).pop();
             },
             child: const Text(
@@ -549,6 +638,7 @@ class _MintDetailPageState extends State<MintDetailPage> {
               onTap: () {
                 Navigator.of(context).pop();
                 _loadMintInfo();
+                _loadBalance();
               },
             ),
             ListTile(
@@ -569,5 +659,120 @@ class _MintDetailPageState extends State<MintDetailPage> {
         ),
       ),
     );
+  }
+
+  // Load mint settings from SharedPreferences
+  Future<void> _loadMintSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Load default mint status
+      final defaultMintUrl = prefs.getString('default_mint_url');
+      
+      // Load custom name/alias
+      final alias = prefs.getString('mint_alias_${widget.mintUrl}');
+      
+      setState(() {
+        isDefaultMint = defaultMintUrl == widget.mintUrl;
+        customName = alias;
+      });
+    } catch (e) {
+      print('Failed to load mint settings: $e');
+    }
+  }
+
+  // Save default mint setting
+  Future<void> _saveDefaultMint(bool isDefault) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      if (isDefault) {
+        // Set this mint as default
+        await prefs.setString('default_mint_url', widget.mintUrl);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Set as default mint',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+              backgroundColor: Color(0xFF1A1A1A),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        // Remove default mint if this was the default
+        final currentDefault = prefs.getString('default_mint_url');
+        if (currentDefault == widget.mintUrl) {
+          await prefs.remove('default_mint_url');
+        }
+      }
+    } catch (e) {
+      print('Failed to save default mint: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to save: $e',
+              style: const TextStyle(
+                color: Color(0xFFFF6B6B),
+                fontFamily: 'Courier',
+              ),
+            ),
+            backgroundColor: const Color(0xFF1A1A1A),
+          ),
+        );
+      }
+    }
+  }
+
+  // Save mint alias/custom name
+  Future<void> _saveMintAlias(String? alias) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      if (alias != null && alias.isNotEmpty) {
+        await prefs.setString('mint_alias_${widget.mintUrl}', alias);
+      } else {
+        await prefs.remove('mint_alias_${widget.mintUrl}');
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Custom name saved',
+              style: TextStyle(
+                color: Color(0xFF00FF00),
+                fontFamily: 'Courier',
+              ),
+            ),
+            backgroundColor: Color(0xFF1A1A1A),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Failed to save mint alias: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to save: $e',
+              style: const TextStyle(
+                color: Color(0xFFFF6B6B),
+                fontFamily: 'Courier',
+              ),
+            ),
+            backgroundColor: const Color(0xFF1A1A1A),
+          ),
+        );
+      }
+    }
   }
 }

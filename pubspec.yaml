@@ -58,6 +58,9 @@ dependencies:
   
   # QR code scanning
   mobile_scanner: ^7.1.2
+  
+  # Shared preferences for app settings
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:
