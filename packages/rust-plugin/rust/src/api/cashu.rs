@@ -4,9 +4,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::str::FromStr;
 
-use cdk::nuts::{CurrencyUnit, Token, Proof, Id, SecretKey, PublicKey, ProofsMethods};
+use cdk::nuts::{CurrencyUnit, Token, Proof, Id, SecretKey, PublicKey};
 use cdk::secret::Secret;
-use cdk::amount::{Amount, SplitTarget};
+use cdk::amount::Amount;
 use cdk::wallet::{Wallet, MultiMintWallet, SendOptions, ReceiveOptions, WalletBuilder};
 use cdk::cdk_database::WalletDatabase;
 use cdk::wallet::types::{TransactionDirection, WalletKey};
@@ -64,6 +64,29 @@ pub struct TransactionInfo {
     pub amount: u64,
     pub memo: Option<String>,
     pub timestamp: u64,
+}
+
+/// Mint information structure for NUT-06
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintInfo {
+    pub name: Option<String>,
+    pub version: Option<String>,
+    pub description: Option<String>,
+    pub description_long: Option<String>,
+    pub contact: Option<Vec<ContactInfo>>,
+    pub motd: Option<String>,
+    pub icon_url: Option<String>,
+    pub urls: Option<Vec<String>>,
+    pub nuts: Option<Vec<String>>,
+    pub public_key: Option<String>,
+    pub additional_info: Option<String>,
+}
+
+/// Contact information structure
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContactInfo {
+    pub method: String,
+    pub info: String,
 }
 
 /// Convert CDK Proof to CashuProof
@@ -360,29 +383,6 @@ pub async fn get_all_balances() -> Result<HashMap<String, u64>, String> {
     Ok(balances)
 }
 
-/// Mint information structure for NUT-06
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MintInfo {
-    pub name: Option<String>,
-    pub version: Option<String>,
-    pub description: Option<String>,
-    pub description_long: Option<String>,
-    pub contact: Option<Vec<ContactInfo>>,
-    pub motd: Option<String>,
-    pub icon_url: Option<String>,
-    pub urls: Option<Vec<String>>,
-    pub nuts: Option<Vec<String>>,
-    pub public_key: Option<String>,
-    pub additional_info: Option<String>,
-}
-
-/// Contact information structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContactInfo {
-    pub method: String,
-    pub info: String,
-}
-
 /// Extract supported NUTs from the Nuts struct
 fn extract_supported_nuts(nuts: &cdk::nuts::Nuts) -> Vec<String> {
     let mut supported_nuts = Vec::new();
@@ -586,35 +586,6 @@ pub async fn create_mint_quote(mint_url: String, amount: u64, description: Optio
         result.insert("unit".to_string(), quote.unit.to_string());
 
         Ok(result)
-}
-
-/// Check all mint quotes and automatically mint if paid - defaults to sat unit
-
-pub async fn check_mint_quote_status(mint_url: String) -> Result<String, String> {
-        let mint_url_parsed = MintUrl::from_str(&mint_url)
-            .map_err(|e| format!("Invalid mint URL: {}", e))?;
-
-        // Use the global MULTI_MINT_WALLET
-        let wallet_guard = MULTI_MINT_WALLET.read().await;
-        let multi_mint_wallet = wallet_guard.as_ref()
-            .ok_or("MultiMintWallet not initialized")?;
-
-        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
-        
-        if !multi_mint_wallet.has(&wallet_key).await {
-            return Err("Mint not found in wallet".to_string());
-        }
-
-        // Use CDK MultiMintWallet API directly - check all quotes and auto-mint if paid
-        let amounts_minted = multi_mint_wallet.check_all_mint_quotes(Some(wallet_key)).await
-            .map_err(|e| format!("Failed to check mint quotes: {}", e))?;
-
-        // Return the total amount minted for this wallet
-        let total_minted = amounts_minted.get(&CurrencyUnit::Sat)
-            .map(|amount| u64::from(*amount))
-            .unwrap_or(0);
-
-        Ok(total_minted.to_string())
 }
 
 /// Get wallet proofs - defaults to sat unit
@@ -838,8 +809,108 @@ pub async fn verify_token_dleq(mint_url: String, token: String) -> Result<bool, 
         }
 }
 
-/// Validate a mnemonic phrase
 
+/// Check all mint quotes and automatically mint if paid - defaults to sat unit
+
+pub async fn check_mint_quote_status(mint_url: String) -> Result<String, String> {
+    let mint_url_parsed = MintUrl::from_str(&mint_url)
+        .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
+    // Use the global MULTI_MINT_WALLET
+    let wallet_guard = MULTI_MINT_WALLET.read().await;
+    let multi_mint_wallet = wallet_guard.as_ref()
+        .ok_or("MultiMintWallet not initialized")?;
+
+    let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
+    
+    if !multi_mint_wallet.has(&wallet_key).await {
+        return Err("Mint not found in wallet".to_string());
+    }
+
+    // Use CDK MultiMintWallet API directly - check all quotes and auto-mint if paid
+    let amounts_minted = multi_mint_wallet.check_all_mint_quotes(Some(wallet_key)).await
+        .map_err(|e| format!("Failed to check mint quotes: {}", e))?;
+
+    // Return the total amount minted for this wallet
+    let total_minted = amounts_minted.get(&CurrencyUnit::Sat)
+        .map(|amount| u64::from(*amount))
+        .unwrap_or(0);
+
+    Ok(total_minted.to_string())
+}
+
+/// Check all mint quotes across all wallets and automatically mint if paid
+pub async fn check_all_mint_quotes() -> Result<HashMap<String, String>, String> {
+    let wallet_guard = MULTI_MINT_WALLET.read().await;
+    let multi_mint_wallet = wallet_guard.as_ref()
+        .ok_or("MultiMintWallet not initialized")?;
+
+    let amounts_minted = multi_mint_wallet.check_all_mint_quotes(None).await
+        .map_err(|e| format!("Failed to check mint quotes: {}", e))?;
+
+    let mut result = HashMap::new();
+    let mut total_minted = 0u64;
+
+    for (unit, amount) in amounts_minted {
+        let amount_u64 = u64::from(amount);
+        total_minted += amount_u64;
+        result.insert(unit.to_string(), amount_u64.to_string());
+    }
+
+    result.insert("total_minted".to_string(), total_minted.to_string());
+    Ok(result)
+}
+
+/// Check melt quote status for a specific mint URL - automatically checks all melt quotes
+pub async fn check_melt_quote_status(mint_url: String) -> Result<String, String> {
+    let mint_url_parsed = MintUrl::from_str(&mint_url)
+        .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
+    // Use the global MULTI_MINT_WALLET
+    let wallet_guard = MULTI_MINT_WALLET.read().await;
+    let multi_mint_wallet = wallet_guard.as_ref()
+        .ok_or("MultiMintWallet not initialized")?;
+
+    let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
+    
+    if !multi_mint_wallet.has(&wallet_key).await {
+        return Err("Mint not found in wallet".to_string());
+    }
+
+    // Get the wallet
+    let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
+        .ok_or("Wallet not found")?;
+
+    // todo: get all melt quotes
+    
+    Ok("0".to_string())
+}
+
+/// Check all melt quotes across all wallets and return completed count
+pub async fn check_all_melt_quotes() -> Result<String, String> {
+    let wallet_guard = MULTI_MINT_WALLET.read().await;
+    let multi_mint_wallet = wallet_guard.as_ref()
+        .ok_or("MultiMintWallet not initialized")?;
+
+    let wallets = multi_mint_wallet.wallets.read().await;
+    let mut total_completed_count = 0u64;
+
+    // Iterate through all wallets and call check_melt_quote_status for each
+    for (wallet_key, _wallet) in wallets.iter() {
+        let mint_url = wallet_key.mint_url.to_string();
+        let result = check_melt_quote_status(mint_url).await
+            .map_err(|e| format!("Failed to check melt quotes for {}: {}", wallet_key.mint_url, e))?;
+        
+        let completed_count = result.parse::<u64>()
+            .map_err(|e| format!("Failed to parse completed count: {}", e))?;
+        
+        total_completed_count += completed_count;
+    }
+
+    Ok(total_completed_count.to_string())
+}
+
+/// Validate a mnemonic phrase
 pub async fn validate_mnemonic_phrase(mnemonic_phrase: String) -> Result<bool, String> {
     match Mnemonic::from_str(&mnemonic_phrase) {
         Ok(_) => Ok(true),

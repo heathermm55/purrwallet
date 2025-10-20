@@ -63,6 +63,32 @@ class _MainAppPageState extends State<MainAppPage> {
         }
       }
     };
+
+    // Set up callback for melt quote updates
+    WalletService.onMeltedAmountReceived = (Map<String, String> result) {
+      if (mounted) {
+        final completedCount = int.parse(result['completed_count'] ?? '0');
+        if (completedCount > 0) {
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Payment sent! $completedCount melt quotes completed',
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+              backgroundColor: const Color(0xFF1A1A1A),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          
+          // Refresh wallet data
+          _refreshWalletData();
+        }
+      }
+    };
   }
 
   /// Generate a new 32-byte seed as hex string
@@ -907,7 +933,7 @@ class _MainAppPageState extends State<MainAppPage> {
   void _addMint(String mintUrl, String alias) async {
     try {
       // Add the mint using the Rust API
-      final result = addMint(mintUrl: mintUrl, unit: 'sat');
+      final result = addMint(mintUrl: mintUrl);
       print('Add mint result: $result');
       
       // Show success message
@@ -2608,7 +2634,7 @@ class _MainAppPageState extends State<MainAppPage> {
       Navigator.of(context).pop(); // Close loading dialog
 
       // Start specific monitoring for this mint URL
-      WalletService.startSpecificMonitoring([mintUrl]);
+      WalletService.startMintQuoteMonitoring([mintUrl]);
 
       // Show invoice dialog
       _showInvoiceDialog(invoice, invoiceAmount, mintUrl);

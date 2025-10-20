@@ -645,7 +645,7 @@ class _MintsPageState extends State<MintsPage> {
       print('Adding mint with URL: $mintUrl');
       
       // Add the mint using the Rust API
-      final result = addMint(mintUrl: mintUrl, unit: 'sat');
+      final result = addMint(mintUrl: mintUrl);
       print('Add mint result: $result');
 
       // Show success message
@@ -691,7 +691,7 @@ class _MintsPageState extends State<MintsPage> {
       print('Removing mint with URL: $mintUrl');
       
       // Remove the mint using the Rust API
-      final result = removeMint(mintUrl: mintUrl, unit: 'sat');
+      final result = removeMint(mintUrl: mintUrl);
       print('Remove mint result: $result');
 
       // Show success message

@@ -81,10 +81,6 @@ Future<Map<String, String>> createMintQuote({
   description: description,
 );
 
-/// Check all mint quotes and automatically mint if paid - defaults to sat unit
-Future<String> checkMintQuoteStatus({required String mintUrl}) =>
-    RustLib.instance.api.crateApiCashuCheckMintQuoteStatus(mintUrl: mintUrl);
-
 /// Get wallet proofs - defaults to sat unit
 Future<List<CashuProof>> getWalletProofs({required String mintUrl}) =>
     RustLib.instance.api.crateApiCashuGetWalletProofs(mintUrl: mintUrl);
@@ -139,6 +135,22 @@ Future<bool> verifyTokenDleq({
   mintUrl: mintUrl,
   token: token,
 );
+
+/// Check all mint quotes and automatically mint if paid - defaults to sat unit
+Future<String> checkMintQuoteStatus({required String mintUrl}) =>
+    RustLib.instance.api.crateApiCashuCheckMintQuoteStatus(mintUrl: mintUrl);
+
+/// Check all mint quotes across all wallets and automatically mint if paid
+Future<Map<String, String>> checkAllMintQuotes() =>
+    RustLib.instance.api.crateApiCashuCheckAllMintQuotes();
+
+/// Check melt quote status for a specific mint URL - automatically checks all melt quotes
+Future<String> checkMeltQuoteStatus({required String mintUrl}) =>
+    RustLib.instance.api.crateApiCashuCheckMeltQuoteStatus(mintUrl: mintUrl);
+
+/// Check all melt quotes across all wallets and return completed count
+Future<String> checkAllMeltQuotes() =>
+    RustLib.instance.api.crateApiCashuCheckAllMeltQuotes();
 
 /// Validate a mnemonic phrase
 Future<bool> validateMnemonicPhrase({required String mnemonicPhrase}) => RustLib

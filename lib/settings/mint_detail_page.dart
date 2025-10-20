@@ -630,7 +630,7 @@ class _MintDetailPageState extends State<MintDetailPage> {
 
   void _confirmDeleteMint() async {
     try {
-      final result = removeMint(mintUrl: widget.mintUrl, unit: widget.unit);
+      final result = removeMint(mintUrl: widget.mintUrl);
       print('Delete mint result: $result');
       
       if (mounted) {

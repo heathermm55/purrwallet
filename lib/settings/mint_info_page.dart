@@ -453,7 +453,6 @@ class _MintInfoPageState extends State<MintInfoPage> {
       // Fetch mint info using Rust API (NUT-06)
       final mintInfoData = await getMintInfo(
         mintUrl: widget.mintUrl,
-        unit: widget.unit,
       );
       
       setState(() {
