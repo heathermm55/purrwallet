@@ -18,13 +18,13 @@ Future<String> initMultiMintWallet({
   seedHex: seedHex,
 );
 
-/// Add a mint to MultiMintWallet
-Future<String> addMint({required String mintUrl, required String unit}) =>
-    RustLib.instance.api.crateApiCashuAddMint(mintUrl: mintUrl, unit: unit);
+/// Add a mint to MultiMintWallet - defaults to sat unit
+Future<String> addMint({required String mintUrl}) =>
+    RustLib.instance.api.crateApiCashuAddMint(mintUrl: mintUrl);
 
-/// Remove a mint from MultiMintWallet
-Future<String> removeMint({required String mintUrl, required String unit}) =>
-    RustLib.instance.api.crateApiCashuRemoveMint(mintUrl: mintUrl, unit: unit);
+/// Remove a mint from MultiMintWallet - defaults to sat unit
+Future<String> removeMint({required String mintUrl}) =>
+    RustLib.instance.api.crateApiCashuRemoveMint(mintUrl: mintUrl);
 
 /// List all mints in MultiMintWallet
 Future<List<String>> listMints() =>
@@ -39,25 +39,9 @@ Future<bool> walletExists({
   databaseDir: databaseDir,
 );
 
-/// Create a new CDK Wallet
-Future<String> createWallet({
-  required String mintUrl,
-  required String unit,
-  required String databaseDir,
-}) => RustLib.instance.api.crateApiCashuCreateWallet(
-  mintUrl: mintUrl,
-  unit: unit,
-  databaseDir: databaseDir,
-);
-
-/// Get wallet information quickly (without network requests)
-Future<WalletInfo> getWalletInfoFast({
-  required String mintUrl,
-  required String unit,
-}) => RustLib.instance.api.crateApiCashuGetWalletInfoFast(
-  mintUrl: mintUrl,
-  unit: unit,
-);
+/// Get wallet information (may make network requests for keyset info) - defaults to sat unit
+Future<WalletInfo> getWalletInfo({required String mintUrl}) =>
+    RustLib.instance.api.crateApiCashuGetWalletInfo(mintUrl: mintUrl);
 
 /// Get all transactions from all mints (fast, no network requests)
 Future<List<TransactionInfo>> getAllTransactions() =>
@@ -67,98 +51,47 @@ Future<List<TransactionInfo>> getAllTransactions() =>
 Future<Map<String, BigInt>> getAllBalances() =>
     RustLib.instance.api.crateApiCashuGetAllBalances();
 
-/// Get mint information from NUT-06 endpoint
-Future<MintInfo> getMintInfo({required String mintUrl, required String unit}) =>
-    RustLib.instance.api.crateApiCashuGetMintInfo(mintUrl: mintUrl, unit: unit);
+/// Get mint information from NUT-06 endpoint - defaults to sat unit
+Future<MintInfo> getMintInfo({required String mintUrl}) =>
+    RustLib.instance.api.crateApiCashuGetMintInfo(mintUrl: mintUrl);
 
-/// Send tokens
+/// Send tokens using CDK MultiMintWallet API directly - defaults to sat unit
 Future<String> sendTokens({
   required String mintUrl,
-  required String unit,
   required BigInt amount,
   String? memo,
 }) => RustLib.instance.api.crateApiCashuSendTokens(
   mintUrl: mintUrl,
-  unit: unit,
   amount: amount,
   memo: memo,
 );
 
-/// Receive tokens
-Future<BigInt> receiveTokens({
-  required String mintUrl,
-  required String unit,
-  required String token,
-  String? memo,
-}) => RustLib.instance.api.crateApiCashuReceiveTokens(
-  mintUrl: mintUrl,
-  unit: unit,
-  token: token,
-  memo: memo,
-);
+/// Receive tokens using CDK MultiMintWallet API directly - auto-detects mint URL from token
+Future<BigInt> receiveTokens({required String token}) =>
+    RustLib.instance.api.crateApiCashuReceiveTokens(token: token);
 
-/// Create mint quote
+/// Create mint quote using CDK MultiMintWallet API directly - defaults to sat unit
 Future<Map<String, String>> createMintQuote({
   required String mintUrl,
-  required String unit,
   required BigInt amount,
+  String? description,
 }) => RustLib.instance.api.crateApiCashuCreateMintQuote(
   mintUrl: mintUrl,
-  unit: unit,
   amount: amount,
+  description: description,
 );
 
-/// Check mint quote status
-Future<String> checkMintQuoteStatus({
-  required String mintUrl,
-  required String unit,
-  required String quoteId,
-}) => RustLib.instance.api.crateApiCashuCheckMintQuoteStatus(
-  mintUrl: mintUrl,
-  unit: unit,
-  quoteId: quoteId,
-);
+/// Check all mint quotes and automatically mint if paid - defaults to sat unit
+Future<String> checkMintQuoteStatus({required String mintUrl}) =>
+    RustLib.instance.api.crateApiCashuCheckMintQuoteStatus(mintUrl: mintUrl);
 
-/// Mint tokens from quote
-Future<BigInt> mintFromQuote({
-  required String mintUrl,
-  required String unit,
-  required String quoteId,
-}) => RustLib.instance.api.crateApiCashuMintFromQuote(
-  mintUrl: mintUrl,
-  unit: unit,
-  quoteId: quoteId,
-);
-
-/// Get wallet proofs
-Future<List<CashuProof>> getWalletProofs({
-  required String mintUrl,
-  required String unit,
-}) => RustLib.instance.api.crateApiCashuGetWalletProofs(
-  mintUrl: mintUrl,
-  unit: unit,
-);
-
-/// Create a new Cashu proof (helper function)
-Future<CashuProof> createCashuProof({
-  required String id,
-  required BigInt amount,
-  required String secret,
-  required String c,
-}) => RustLib.instance.api.crateApiCashuCreateCashuProof(
-  id: id,
-  amount: amount,
-  secret: secret,
-  c: c,
-);
+/// Get wallet proofs - defaults to sat unit
+Future<List<CashuProof>> getWalletProofs({required String mintUrl}) =>
+    RustLib.instance.api.crateApiCashuGetWalletProofs(mintUrl: mintUrl);
 
 /// Parse Cashu token string
 Future<Map<String, String>> parseCashuToken({required String token}) =>
     RustLib.instance.api.crateApiCashuParseCashuToken(token: token);
-
-/// Validate Cashu proof
-Future<bool> validateCashuProof({required CashuProof proof}) =>
-    RustLib.instance.api.crateApiCashuValidateCashuProof(proof: proof);
 
 /// Generate a new BIP39 mnemonic phrase (12 or 24 words)
 Future<String> generateMnemonicPhrase({required int wordCount}) => RustLib
@@ -176,40 +109,42 @@ Future<String> mnemonicToSeedHex({required String mnemonicPhrase}) => RustLib
 Future<String> seedHexToMnemonic({required String seedHex}) =>
     RustLib.instance.api.crateApiCashuSeedHexToMnemonic(seedHex: seedHex);
 
+/// Pay lightning invoice using wallet tokens - defaults to sat unit
+Future<String> payInvoiceForWallet({
+  required String mintUrl,
+  required String bolt11Invoice,
+  BigInt? maxFeeSats,
+}) => RustLib.instance.api.crateApiCashuPayInvoiceForWallet(
+  mintUrl: mintUrl,
+  bolt11Invoice: bolt11Invoice,
+  maxFeeSats: maxFeeSats,
+);
+
+/// Verify token matches p2pk conditions - defaults to sat unit
+Future<bool> verifyTokenP2Pk({
+  required String mintUrl,
+  required String token,
+  required String conditions,
+}) => RustLib.instance.api.crateApiCashuVerifyTokenP2Pk(
+  mintUrl: mintUrl,
+  token: token,
+  conditions: conditions,
+);
+
+/// Verify all proofs in token have valid dleq proof - defaults to sat unit
+Future<bool> verifyTokenDleq({
+  required String mintUrl,
+  required String token,
+}) => RustLib.instance.api.crateApiCashuVerifyTokenDleq(
+  mintUrl: mintUrl,
+  token: token,
+);
+
 /// Validate a mnemonic phrase
 Future<bool> validateMnemonicPhrase({required String mnemonicPhrase}) => RustLib
     .instance
     .api
     .crateApiCashuValidateMnemonicPhrase(mnemonicPhrase: mnemonicPhrase);
-
-/// Create a lightning invoice for receiving payment
-Future<String> createLightningInvoice({
-  required String mintUrl,
-  required BigInt amount,
-  String? memo,
-}) => RustLib.instance.api.crateApiCashuCreateLightningInvoice(
-  mintUrl: mintUrl,
-  amount: amount,
-  memo: memo,
-);
-
-/// Check if a lightning invoice has been paid
-Future<bool> checkLightningInvoiceStatus({
-  required String mintUrl,
-  required String quoteId,
-}) => RustLib.instance.api.crateApiCashuCheckLightningInvoiceStatus(
-  mintUrl: mintUrl,
-  quoteId: quoteId,
-);
-
-/// Mint tokens from a paid lightning invoice
-Future<String> mintFromLightningInvoice({
-  required String mintUrl,
-  required String quoteId,
-}) => RustLib.instance.api.crateApiCashuMintFromLightningInvoice(
-  mintUrl: mintUrl,
-  quoteId: quoteId,
-);
 
 /// Cashu proof structure for FFI
 class CashuProof {

@@ -194,23 +194,16 @@ async fn load_wallets_from_database(localstore: &WalletSqliteDatabase, seed: &[u
     Ok(wallets)
 }
 
-/// Add a mint to MultiMintWallet
+/// Add a mint to MultiMintWallet - defaults to sat unit
 
-pub async fn add_mint(mint_url: String, unit: String) -> Result<String, String> {
+pub async fn add_mint(mint_url: String) -> Result<String, String> {
         let wallet_guard = MULTI_MINT_WALLET.read().await;
         let multi_mint_wallet = wallet_guard.as_ref()
             .ok_or("MultiMintWallet not initialized")?;
 
-        let currency_unit = match unit.as_str() {
-            "sat" => CurrencyUnit::Sat,
-            "usd" => CurrencyUnit::Usd,
-            "eur" => CurrencyUnit::Eur,
-            _ => return Err("Unsupported currency unit".to_string()),
-        };
-
         let mint_url_parsed = MintUrl::from_str(&mint_url)
             .map_err(|e| format!("Invalid mint URL: {}", e))?;
-        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit.clone());
+        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
         
         // Check if wallet already exists
         if multi_mint_wallet.has(&wallet_key).await {
@@ -218,12 +211,8 @@ pub async fn add_mint(mint_url: String, unit: String) -> Result<String, String> 
         }
 
         // Create and add wallet
-        let wallet = multi_mint_wallet.create_and_add_wallet(&mint_url, currency_unit.clone(), None).await
+        let wallet = multi_mint_wallet.create_and_add_wallet(&mint_url, CurrencyUnit::Sat, None).await
             .map_err(|e| format!("Failed to create wallet: {}", e))?;
-
-        // Try to get mint info and keysets
-        wallet.get_mint_info().await
-            .map_err(|e| format!("Failed to get mint info: {}", e))?;
 
         wallet.load_mint_keysets().await
             .map_err(|e| format!("Failed to load keysets: {}", e))?;
@@ -232,27 +221,18 @@ pub async fn add_mint(mint_url: String, unit: String) -> Result<String, String> 
             .map_err(|e| format!("Failed to get active keyset: {}", e))?;
 
         Ok("Mint added successfully".to_string())
-
 }
 
-/// Remove a mint from MultiMintWallet
+/// Remove a mint from MultiMintWallet - defaults to sat unit
 
-pub async fn remove_mint(mint_url: String, unit: String) -> Result<String, String> {
-
+pub async fn remove_mint(mint_url: String) -> Result<String, String> {
         let wallet_guard = MULTI_MINT_WALLET.read().await;
         let multi_mint_wallet = wallet_guard.as_ref()
             .ok_or("MultiMintWallet not initialized")?;
 
-        let currency_unit = match unit.as_str() {
-            "sat" => CurrencyUnit::Sat,
-            "usd" => CurrencyUnit::Usd,
-            "eur" => CurrencyUnit::Eur,
-            _ => return Err("Unsupported currency unit".to_string()),
-        };
-
         let mint_url_parsed = MintUrl::from_str(&mint_url)
             .map_err(|e| format!("Invalid mint URL: {}", e))?;
-        let wallet_key = WalletKey::new(mint_url_parsed.clone(), currency_unit);
+        let wallet_key = WalletKey::new(mint_url_parsed.clone(), CurrencyUnit::Sat);
         
         if !multi_mint_wallet.has(&wallet_key).await {
             return Err("Mint not found".to_string());
@@ -266,7 +246,6 @@ pub async fn remove_mint(mint_url: String, unit: String) -> Result<String, Strin
             .map_err(|e| format!("Failed to remove mint from database: {}", e))?;
         
         Ok("Mint removed successfully".to_string())
-
 }
 
 /// List all mints in MultiMintWallet
@@ -292,64 +271,18 @@ pub async fn wallet_exists(mint_url: String, database_dir: String) -> bool {
     wallet_database_exists(&database_dir, &mint_url)
 }
 
-/// Create a new CDK Wallet
-pub async fn create_wallet(mint_url: String, unit: String, database_dir: String) -> Result<String, String> {
-    // Check if wallet already exists
-    if wallet_database_exists(&database_dir, &mint_url) {
-        return Ok("Wallet already exists".to_string());
-    }
-
-    let seed = random::<[u8; 32]>();
-    let currency_unit = match unit.as_str() {
-        "sat" => CurrencyUnit::Sat,
-        "usd" => CurrencyUnit::Usd,
-        "eur" => CurrencyUnit::Eur,
-        _ => return Err("Unsupported currency unit".to_string()),
-    };
-
-    let db_path = get_database_path(&database_dir, &mint_url);
-    std::fs::create_dir_all(db_path.parent().unwrap())
-        .map_err(|e| format!("Failed to create database directory: {}", e))?;
-
-    let localstore = WalletSqliteDatabase::new(db_path.to_str().unwrap()).await
-        .map_err(|e| format!("Failed to create SQLite store: {}", e))?;
-
-    let wallet = Wallet::new(
-        &mint_url,
-        currency_unit,
-        Arc::new(localstore),
-        &seed,
-        None,
-    ).map_err(|e| format!("Failed to create wallet: {}", e))?;
-
-    // Get mint info to validate connection
-    wallet.get_mint_info().await
-        .map_err(|e| format!("Failed to get mint info: {}", e))?;
-
-    Ok("Wallet created successfully".to_string())
-}
-
-
-
-/// Get wallet information quickly (without network requests)
-pub async fn get_wallet_info_fast(mint_url: String, unit: String) -> Result<WalletInfo, String> {
+/// Get wallet information (may make network requests for keyset info) - defaults to sat unit
+pub async fn get_wallet_info(mint_url: String) -> Result<WalletInfo, String> {
 
         let mint_url_parsed = MintUrl::from_str(&mint_url)
             .map_err(|e| format!("Invalid mint URL: {}", e))?;
-
-        let currency_unit = match unit.as_str() {
-            "sat" => CurrencyUnit::Sat,
-            "usd" => CurrencyUnit::Usd,
-            "eur" => CurrencyUnit::Eur,
-            _ => return Err("Unsupported currency unit".to_string()),
-        };
 
         // Use MultiMintWallet to get wallet info
         let wallet_guard = MULTI_MINT_WALLET.read().await;
         let multi_mint_wallet = wallet_guard.as_ref()
             .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
+        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
         
         if !multi_mint_wallet.has(&wallet_key).await {
             return Err("Mint not found in wallet".to_string());
@@ -361,8 +294,10 @@ pub async fn get_wallet_info_fast(mint_url: String, unit: String) -> Result<Wall
         let balance = wallet.total_balance().await
             .map_err(|e| format!("Failed to get balance: {}", e))?;
 
-        // Use cached keyset info or default (no network request)
-        let active_keyset_id = "cached_keyset".to_string();
+        // Get active keyset ID from mint info
+        let active_keyset_id = wallet.get_active_mint_keyset().await
+            .map_err(|e| format!("Failed to get active keyset: {}", e))?
+            .id.to_string();
 
         Ok(WalletInfo {
             mint_url: wallet.mint_url.to_string(),
@@ -505,24 +440,17 @@ fn extract_supported_nuts(nuts: &cdk::nuts::Nuts) -> Vec<String> {
     supported_nuts
 }
 
-/// Get mint information from NUT-06 endpoint
-pub async fn get_mint_info(mint_url: String, unit: String) -> Result<MintInfo, String> {
+/// Get mint information from NUT-06 endpoint - defaults to sat unit
+pub async fn get_mint_info(mint_url: String) -> Result<MintInfo, String> {
     let mint_url_parsed = MintUrl::from_str(&mint_url)
         .map_err(|e| format!("Invalid mint URL: {}", e))?;
-
-    let currency_unit = match unit.as_str() {
-        "sat" => CurrencyUnit::Sat,
-        "usd" => CurrencyUnit::Usd,
-        "eur" => CurrencyUnit::Eur,
-        _ => return Err("Unsupported currency unit".to_string()),
-    };
 
     // Use MultiMintWallet to get mint info
     let wallet_guard = MULTI_MINT_WALLET.read().await;
     let multi_mint_wallet = wallet_guard.as_ref()
         .ok_or("MultiMintWallet not initialized")?;
 
-    let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
+    let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
 
     if !multi_mint_wallet.has(&wallet_key).await {
         return Err("Mint not found in wallet".to_string());
@@ -563,117 +491,92 @@ pub async fn get_mint_info(mint_url: String, unit: String) -> Result<MintInfo, S
     }
 }
 
-/// Send tokens
+/// Send tokens using CDK MultiMintWallet API directly - defaults to sat unit
 
-pub async fn send_tokens(mint_url: String, unit: String, amount: u64, memo: Option<String>) -> Result<String, String> {
-
+pub async fn send_tokens(mint_url: String, amount: u64, memo: Option<String>) -> Result<String, String> {
         let mint_url_parsed = MintUrl::from_str(&mint_url)
             .map_err(|e| format!("Invalid mint URL: {}", e))?;
-
-        let currency_unit = match unit.as_str() {
-            "sat" => CurrencyUnit::Sat,
-            "usd" => CurrencyUnit::Usd,
-            "eur" => CurrencyUnit::Eur,
-            _ => return Err("Unsupported currency unit".to_string()),
-        };
 
         // Use the global MULTI_MINT_WALLET
         let wallet_guard = MULTI_MINT_WALLET.read().await;
         let multi_mint_wallet = wallet_guard.as_ref()
             .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
+        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
         
         if !multi_mint_wallet.has(&wallet_key).await {
             return Err("Mint not found in wallet".to_string());
         }
 
-        let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
-            .ok_or("Failed to get wallet")?;
-
+        // Use CDK MultiMintWallet API directly
         let send_amount = Amount::from(amount);
         let send_options = SendOptions::default();
         
-        let prepared_send = wallet.prepare_send(send_amount, send_options).await
+        let prepared_send = multi_mint_wallet.prepare_send(&wallet_key, send_amount, send_options).await
             .map_err(|e| format!("Failed to prepare send: {}", e))?;
 
         let send_memo = memo.map(|m| cdk::wallet::SendMemo::for_token(&m));
-        let token = wallet.send(prepared_send, send_memo).await
+        let token = multi_mint_wallet.send(&wallet_key, prepared_send, send_memo).await
             .map_err(|e| format!("Failed to send: {}", e))?;
 
         Ok(token.to_string())
-
 }
 
-/// Receive tokens
+/// Receive tokens using CDK MultiMintWallet API directly - auto-detects mint URL from token
 
-pub async fn receive_tokens(mint_url: String, unit: String, token: String, _memo: Option<String>) -> Result<u64, String> {
+pub async fn receive_tokens(token: String) -> Result<u64, String> {
+        // Parse token to get mint URL
+        let cashu_token = Token::from_str(&token)
+            .map_err(|e| format!("Failed to parse token: {}", e))?;
 
-        let mint_url_parsed = MintUrl::from_str(&mint_url)
-            .map_err(|e| format!("Invalid mint URL: {}", e))?;
-
-        let currency_unit = match unit.as_str() {
-            "sat" => CurrencyUnit::Sat,
-            "usd" => CurrencyUnit::Usd,
-            "eur" => CurrencyUnit::Eur,
-            _ => return Err("Unsupported currency unit".to_string()),
-        };
+        let token_mint_url = cashu_token.mint_url()
+            .map_err(|e| format!("Failed to get mint URL from token: {}", e))?;
 
         // Use the global MULTI_MINT_WALLET
         let wallet_guard = MULTI_MINT_WALLET.read().await;
         let multi_mint_wallet = wallet_guard.as_ref()
             .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
+        let wallet_key = WalletKey::new(token_mint_url.clone(), CurrencyUnit::Sat);
         
+        // If mint doesn't exist, add it automatically
         if !multi_mint_wallet.has(&wallet_key).await {
-            return Err("Mint not found in wallet".to_string());
+            // Add the mint automatically
+            let _wallet = multi_mint_wallet.create_and_add_wallet(&token_mint_url.to_string(), CurrencyUnit::Sat, None).await
+                .map_err(|e| format!("Failed to add mint automatically: {}", e))?;
         }
 
+        // Get wallet for receiving
         let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
             .ok_or("Failed to get wallet")?;
-
-        let _cashu_token = Token::from_str(&token)
-            .map_err(|e| format!("Failed to parse token: {}", e))?;
 
         let receive_options = ReceiveOptions::default();
         let received_amount = wallet.receive(&token, receive_options).await
             .map_err(|e| format!("Failed to receive: {}", e))?;
 
         Ok(received_amount.into())
-
 }
 
-/// Create mint quote
+/// Create mint quote using CDK MultiMintWallet API directly - defaults to sat unit
 
-pub async fn create_mint_quote(mint_url: String, unit: String, amount: u64) -> Result<HashMap<String, String>, String> {
-
+pub async fn create_mint_quote(mint_url: String, amount: u64, description: Option<String>) -> Result<HashMap<String, String>, String> {
         let mint_url_parsed = MintUrl::from_str(&mint_url)
             .map_err(|e| format!("Invalid mint URL: {}", e))?;
-
-        let currency_unit = match unit.as_str() {
-            "sat" => CurrencyUnit::Sat,
-            "usd" => CurrencyUnit::Usd,
-            "eur" => CurrencyUnit::Eur,
-            _ => return Err("Unsupported currency unit".to_string()),
-        };
 
         // Use the global MULTI_MINT_WALLET
         let wallet_guard = MULTI_MINT_WALLET.read().await;
         let multi_mint_wallet = wallet_guard.as_ref()
             .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
+        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
         
         if !multi_mint_wallet.has(&wallet_key).await {
             return Err("Mint not found in wallet".to_string());
         }
 
-        let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
-            .ok_or("Failed to get wallet")?;
-
+        // Use CDK MultiMintWallet API directly
         let mint_amount = Amount::from(amount);
-        let quote = wallet.mint_quote(mint_amount, None).await
+        let quote = multi_mint_wallet.mint_quote(&wallet_key, mint_amount, description).await
             .map_err(|e| format!("Failed to create mint quote: {}", e))?;
 
         let mut result = HashMap::new();
@@ -683,105 +586,49 @@ pub async fn create_mint_quote(mint_url: String, unit: String, amount: u64) -> R
         result.insert("unit".to_string(), quote.unit.to_string());
 
         Ok(result)
-
 }
 
-/// Check mint quote status
+/// Check all mint quotes and automatically mint if paid - defaults to sat unit
 
-pub async fn check_mint_quote_status(mint_url: String, unit: String, quote_id: String) -> Result<String, String> {
-
+pub async fn check_mint_quote_status(mint_url: String) -> Result<String, String> {
         let mint_url_parsed = MintUrl::from_str(&mint_url)
             .map_err(|e| format!("Invalid mint URL: {}", e))?;
-
-        let currency_unit = match unit.as_str() {
-            "sat" => CurrencyUnit::Sat,
-            "usd" => CurrencyUnit::Usd,
-            "eur" => CurrencyUnit::Eur,
-            _ => return Err("Unsupported currency unit".to_string()),
-        };
 
         // Use the global MULTI_MINT_WALLET
         let wallet_guard = MULTI_MINT_WALLET.read().await;
         let multi_mint_wallet = wallet_guard.as_ref()
             .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
+        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
         
         if !multi_mint_wallet.has(&wallet_key).await {
             return Err("Mint not found in wallet".to_string());
         }
 
-        let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
-            .ok_or("Failed to get wallet")?;
+        // Use CDK MultiMintWallet API directly - check all quotes and auto-mint if paid
+        let amounts_minted = multi_mint_wallet.check_all_mint_quotes(Some(wallet_key)).await
+            .map_err(|e| format!("Failed to check mint quotes: {}", e))?;
 
-        let status = wallet.mint_quote_state(&quote_id).await
-            .map_err(|e| format!("Failed to check quote status: {}", e))?;
+        // Return the total amount minted for this wallet
+        let total_minted = amounts_minted.get(&CurrencyUnit::Sat)
+            .map(|amount| u64::from(*amount))
+            .unwrap_or(0);
 
-        Ok(status.state.to_string())
-
+        Ok(total_minted.to_string())
 }
 
-/// Mint tokens from quote
+/// Get wallet proofs - defaults to sat unit
 
-pub async fn mint_from_quote(mint_url: String, unit: String, quote_id: String) -> Result<u64, String> {
-
+pub async fn get_wallet_proofs(mint_url: String) -> Result<Vec<CashuProof>, String> {
         let mint_url_parsed = MintUrl::from_str(&mint_url)
             .map_err(|e| format!("Invalid mint URL: {}", e))?;
-
-        let currency_unit = match unit.as_str() {
-            "sat" => CurrencyUnit::Sat,
-            "usd" => CurrencyUnit::Usd,
-            "eur" => CurrencyUnit::Eur,
-            _ => return Err("Unsupported currency unit".to_string()),
-        };
 
         // Use the global MULTI_MINT_WALLET
         let wallet_guard = MULTI_MINT_WALLET.read().await;
         let multi_mint_wallet = wallet_guard.as_ref()
             .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
-        
-        if !multi_mint_wallet.has(&wallet_key).await {
-            return Err("Mint not found in wallet".to_string());
-        }
-
-        let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
-            .ok_or("Failed to get wallet")?;
-
-        let split_target = SplitTarget::default();
-        let minted_proofs = wallet.mint(&quote_id, split_target, None).await
-            .map_err(|e| format!("Failed to mint: {}", e))?;
-
-        // Calculate total amount from minted proofs
-        let total_amount: u64 = minted_proofs.iter()
-            .map(|proof| u64::from(proof.amount))
-            .sum();
-
-        Ok(total_amount)
-
-}
-
-/// Get wallet proofs
-
-pub async fn get_wallet_proofs(mint_url: String, unit: String) -> Result<Vec<CashuProof>, String> {
-
-        let mint_url_parsed = MintUrl::from_str(&mint_url)
-            .map_err(|e| format!("Invalid mint URL: {}", e))?;
-
-        let currency_unit = match unit.as_str() {
-            "sat" => CurrencyUnit::Sat,
-            "usd" => CurrencyUnit::Usd,
-            "eur" => CurrencyUnit::Eur,
-            _ => return Err("Unsupported currency unit".to_string()),
-        };
-
-        // Use the global MULTI_MINT_WALLET
-        let wallet_guard = MULTI_MINT_WALLET.read().await;
-        let multi_mint_wallet = wallet_guard.as_ref()
-            .ok_or("MultiMintWallet not initialized")?;
-
-        let wallet_key = WalletKey::new(mint_url_parsed, currency_unit);
+        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
         
         if !multi_mint_wallet.has(&wallet_key).await {
             return Err("Mint not found in wallet".to_string());
@@ -798,14 +645,6 @@ pub async fn get_wallet_proofs(mint_url: String, unit: String) -> Result<Vec<Cas
             .collect();
 
         Ok(cashu_proofs)
-
-}
-
-
-/// Create a new Cashu proof (helper function)
-
-pub async fn create_cashu_proof(id: String, amount: u64, secret: String, c: String) -> CashuProof {
-    CashuProof { id, amount, secret, c }
 }
 
 /// Parse Cashu token string
@@ -823,21 +662,6 @@ pub async fn parse_cashu_token(token: String) -> Result<HashMap<String, String>,
             Ok(token_data)
         }
         Err(e) => Err(format!("Failed to parse token: {}", e))
-    }
-}
-
-/// Validate Cashu proof
-
-pub async fn validate_cashu_proof(proof: CashuProof) -> Result<bool, String> {
-    // Basic validation - check if all fields are non-empty
-    if proof.id.is_empty() || proof.secret.is_empty() || proof.c.is_empty() {
-        return Ok(false);
-    }
-
-    // Try to convert to CDK Proof to validate format
-    match Proof::try_from(proof) {
-        Ok(_) => Ok(true),
-        Err(_) => Ok(false),
     }
 }
 
@@ -926,6 +750,94 @@ pub async fn seed_hex_to_mnemonic(seed_hex: String) -> Result<String, String> {
     Ok(mnemonic.to_string())
 }
 
+/// Pay lightning invoice using wallet tokens - defaults to sat unit
+
+pub async fn pay_invoice_for_wallet(mint_url: String, bolt11_invoice: String, max_fee_sats: Option<u64>) -> Result<String, String> {
+        let mint_url_parsed = MintUrl::from_str(&mint_url)
+            .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
+        // Use the global MULTI_MINT_WALLET
+        let wallet_guard = MULTI_MINT_WALLET.read().await;
+        let multi_mint_wallet = wallet_guard.as_ref()
+            .ok_or("MultiMintWallet not initialized")?;
+
+        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
+        
+        if !multi_mint_wallet.has(&wallet_key).await {
+            return Err("Mint not found in wallet".to_string());
+        }
+
+        // Convert max_fee_sats to Amount if provided
+        let max_fee = max_fee_sats.map(Amount::from);
+
+        // Use CDK MultiMintWallet API directly
+        let melted = multi_mint_wallet.pay_invoice_for_wallet(&bolt11_invoice, None, &wallet_key, max_fee).await
+            .map_err(|e| format!("Failed to pay invoice: {}", e))?;
+
+        // Return payment status
+        Ok(melted.state.to_string())
+}
+
+/// Verify token matches p2pk conditions - defaults to sat unit
+
+pub async fn verify_token_p2pk(mint_url: String, token: String, conditions: String) -> Result<bool, String> {
+        let mint_url_parsed = MintUrl::from_str(&mint_url)
+            .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
+        // Parse token
+        let cashu_token = Token::from_str(&token)
+            .map_err(|e| format!("Invalid token: {}", e))?;
+
+        // Parse spending conditions (assuming JSON format)
+        let spending_conditions: cdk::nuts::nut11::SpendingConditions = serde_json::from_str(&conditions)
+            .map_err(|e| format!("Invalid spending conditions: {}", e))?;
+
+        // Use the global MULTI_MINT_WALLET
+        let wallet_guard = MULTI_MINT_WALLET.read().await;
+        let multi_mint_wallet = wallet_guard.as_ref()
+            .ok_or("MultiMintWallet not initialized")?;
+
+        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
+        
+        if !multi_mint_wallet.has(&wallet_key).await {
+            return Err("Mint not found in wallet".to_string());
+        }
+
+        // Use CDK MultiMintWallet API directly
+        match multi_mint_wallet.verify_token_p2pk(&wallet_key, &cashu_token, spending_conditions).await {
+            Ok(_) => Ok(true),
+            Err(e) => Err(format!("Token verification failed: {}", e)),
+        }
+}
+
+/// Verify all proofs in token have valid dleq proof - defaults to sat unit
+
+pub async fn verify_token_dleq(mint_url: String, token: String) -> Result<bool, String> {
+        let mint_url_parsed = MintUrl::from_str(&mint_url)
+            .map_err(|e| format!("Invalid mint URL: {}", e))?;
+
+        // Parse token
+        let cashu_token = Token::from_str(&token)
+            .map_err(|e| format!("Invalid token: {}", e))?;
+
+        // Use the global MULTI_MINT_WALLET
+        let wallet_guard = MULTI_MINT_WALLET.read().await;
+        let multi_mint_wallet = wallet_guard.as_ref()
+            .ok_or("MultiMintWallet not initialized")?;
+
+        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
+        
+        if !multi_mint_wallet.has(&wallet_key).await {
+            return Err("Mint not found in wallet".to_string());
+        }
+
+        // Use CDK MultiMintWallet API directly
+        match multi_mint_wallet.verify_token_dleq(&wallet_key, &cashu_token).await {
+            Ok(_) => Ok(true),
+            Err(e) => Err(format!("DLEQ verification failed: {}", e)),
+        }
+}
+
 /// Validate a mnemonic phrase
 
 pub async fn validate_mnemonic_phrase(mnemonic_phrase: String) -> Result<bool, String> {
@@ -933,135 +845,4 @@ pub async fn validate_mnemonic_phrase(mnemonic_phrase: String) -> Result<bool, S
         Ok(_) => Ok(true),
         Err(_) => Ok(false),
     }
-}
-
-/// Create a lightning invoice for receiving payment
-
-pub async fn create_lightning_invoice(
-    mint_url: String,
-    amount: u64,
-    memo: Option<String>,
-) -> Result<String, String> {
-        
-        let mint_url_parsed = MintUrl::from_str(&mint_url)
-            .map_err(|e| format!("Invalid mint URL '{}': {}", mint_url, e))?;
-
-        // Use the global MULTI_MINT_WALLET
-        let wallet_guard = MULTI_MINT_WALLET.read().await;
-        let multi_mint_wallet = wallet_guard.as_ref()
-            .ok_or("MultiMintWallet not initialized")?;
-
-        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
-        
-        if !multi_mint_wallet.has(&wallet_key).await {
-            return Err("Mint not found in wallet".to_string());
-        }
-
-        let wallet_instance = multi_mint_wallet.get_wallet(&wallet_key).await
-            .ok_or("Failed to get wallet")?;
-
-        // Create mint quote for lightning invoice
-        let mint_amount = Amount::from(amount);
-        
-        let quote = wallet_instance.mint_quote(mint_amount, memo).await
-            .map_err(|e| format!("Failed to get mint quote: {}", e))?;
-
-        // Return both the invoice request and the quote ID for tracking
-        let response = serde_json::json!({
-            "invoice": quote.request,
-            "quote_id": quote.id,
-            "amount": amount
-        });
-
-        Ok(response.to_string())
-
-}
-
-/// Check if a lightning invoice has been paid
-
-pub async fn check_lightning_invoice_status(
-    mint_url: String,
-    quote_id: String,
-) -> Result<bool, String> {
-        
-        let mint_url_parsed = MintUrl::from_str(&mint_url)
-            .map_err(|e| format!("Invalid mint URL: {}", e))?;
-
-        // Use the global MULTI_MINT_WALLET
-        let wallet_guard = MULTI_MINT_WALLET.read().await;
-        let multi_mint_wallet = wallet_guard.as_ref()
-            .ok_or("MultiMintWallet not initialized")?;
-
-        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
-        
-        if !multi_mint_wallet.has(&wallet_key).await {
-            return Err("Mint not found in wallet".to_string());
-        }
-
-        let wallet_instance = multi_mint_wallet.get_wallet(&wallet_key).await
-            .ok_or("Failed to get wallet")?;
-
-        // Check quote status using the correct CDK API
-        let quote_response = wallet_instance.mint_quote_state(&quote_id).await
-            .map_err(|e| format!("Failed to check quote status: {}", e))?;
-        
-        // Return true if the quote is paid
-        let is_paid = matches!(quote_response.state, cdk::nuts::MintQuoteState::Paid);
-        
-        Ok(is_paid)
-
-}
-
-/// Mint tokens from a paid lightning invoice
-
-pub async fn mint_from_lightning_invoice(
-    mint_url: String,
-    quote_id: String,
-) -> Result<String, String> {
-        
-        let mint_url_parsed = MintUrl::from_str(&mint_url)
-            .map_err(|e| format!("Invalid mint URL: {}", e))?;
-
-        // Use the global MULTI_MINT_WALLET
-        let wallet_guard = MULTI_MINT_WALLET.read().await;
-        let multi_mint_wallet = wallet_guard.as_ref()
-            .ok_or("MultiMintWallet not initialized")?;
-
-        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
-        
-        if !multi_mint_wallet.has(&wallet_key).await {
-            return Err("Mint not found in wallet".to_string());
-        }
-
-        let wallet_instance = multi_mint_wallet.get_wallet(&wallet_key).await
-            .ok_or("Failed to get wallet")?;
-
-        // Ensure mint info and keysets are loaded before minting
-        wallet_instance.get_mint_info().await
-            .map_err(|e| format!("Failed to get mint info: {}", e))?;
-        
-        wallet_instance.load_mint_keysets().await
-            .map_err(|e| format!("Failed to load mint keysets: {}", e))?;
-
-        // Check if quote is paid
-        match wallet_instance.localstore.get_mint_quote(&quote_id).await {
-            Ok(Some(quote)) => {
-                if !matches!(quote.state, cdk::nuts::MintQuoteState::Paid) {
-                    return Err(format!("Quote is not paid yet, state: {:?}", quote.state));
-                }
-            },
-            Ok(None) => return Err("Quote not found in database".to_string()),
-            Err(e) => return Err(format!("Failed to get quote from database: {}", e)),
-        }
-
-        // Mint tokens from the paid quote
-        let proofs = wallet_instance.mint(&quote_id, cdk::amount::SplitTarget::default(), None).await
-            .map_err(|e| format!("Failed to mint from quote: {}", e))?;
-
-        let total_amount = proofs.total_amount()
-            .map_err(|e| format!("Failed to calculate total amount: {}", e))?;
-        
-        // Return success message with token count and amount
-        Ok(format!("Successfully minted {} tokens, total amount: {}", proofs.len(), total_amount))
-
 }

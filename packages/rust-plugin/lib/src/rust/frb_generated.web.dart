@@ -34,10 +34,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool dco_decode_bool(dynamic raw);
 
   @protected
-  CashuProof dco_decode_box_autoadd_cashu_proof(dynamic raw);
+  NostrEvent dco_decode_box_autoadd_nostr_event(dynamic raw);
 
   @protected
-  NostrEvent dco_decode_box_autoadd_nostr_event(dynamic raw);
+  BigInt dco_decode_box_autoadd_u_64(dynamic raw);
 
   @protected
   CashuProof dco_decode_cashu_proof(dynamic raw);
@@ -85,6 +85,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
+  BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
+
+  @protected
   List<String>? dco_decode_opt_list_String(dynamic raw);
 
   @protected
@@ -129,10 +132,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
-  CashuProof sse_decode_box_autoadd_cashu_proof(SseDeserializer deserializer);
+  NostrEvent sse_decode_box_autoadd_nostr_event(SseDeserializer deserializer);
 
   @protected
-  NostrEvent sse_decode_box_autoadd_nostr_event(SseDeserializer deserializer);
+  BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
 
   @protected
   CashuProof sse_decode_cashu_proof(SseDeserializer deserializer);
@@ -186,6 +189,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
+
+  @protected
+  BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
 
   @protected
   List<String>? sse_decode_opt_list_String(SseDeserializer deserializer);
@@ -243,16 +249,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
-  void sse_encode_box_autoadd_cashu_proof(
-    CashuProof self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_box_autoadd_nostr_event(
     NostrEvent self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
 
   @protected
   void sse_encode_cashu_proof(CashuProof self, SseSerializer serializer);
@@ -322,6 +325,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_list_String(List<String>? self, SseSerializer serializer);

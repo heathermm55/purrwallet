@@ -4,10 +4,12 @@ import 'package:rust_plugin/src/rust/api/nostr.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'accounts/services/auth_service.dart';
 import 'accounts/services/user_service.dart';
 import 'dart:math';
 import 'settings/main_settings_page.dart';
+import 'wallet/services/wallet_service.dart';
 
 /// Main app page - Wallet interface
 class MainAppPage extends StatefulWidget {
@@ -31,6 +33,36 @@ class _MainAppPageState extends State<MainAppPage> {
   void initState() {
     super.initState();
     _initializeWallet();
+    _setupUICallbacks();
+  }
+
+  /// Setup UI callbacks for monitoring updates
+  void _setupUICallbacks() {
+    // Set up callback for UI updates
+    WalletService.onMintedAmountReceived = (Map<String, String> result) {
+      if (mounted) {
+        final totalMinted = int.parse(result['total_minted'] ?? '0');
+        if (totalMinted > 0) {
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Payment received! $totalMinted sats minted to wallet',
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+              backgroundColor: const Color(0xFF1A1A1A),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          
+          // Refresh wallet data
+          _refreshWalletData();
+        }
+      }
+    };
   }
 
   /// Generate a new 32-byte seed as hex string
@@ -67,18 +99,13 @@ class _MainAppPageState extends State<MainAppPage> {
 
   Future<void> _initializeWallet() async {
     try {
-
-      // Get application documents directory
-      final documentsDir = await getApplicationDocumentsDirectory();
-      final databaseDir = documentsDir.path;
-
       // Get or create seed from secure storage
       final seedHex = await _getOrCreateSeed();
       print('Using seed: ${seedHex.substring(0, 8)}...');
 
-      // Initialize MultiMintWallet with seed
-      final initResult = await initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
-      print('MultiMintWallet init result: $initResult');
+      // Initialize wallet using WalletService (this will automatically start monitoring)
+      final initResult = await WalletService.initializeWallet(seedHex);
+      print('Wallet initialization result: $initResult');
 
       // Load wallet data if mints are available
       await _refreshWalletData();
@@ -2508,7 +2535,7 @@ class _MainAppPageState extends State<MainAppPage> {
     );
   }
 
-  /// Create a lightning invoice
+  /// Create a lightning invoice using new simplified API
   Future<void> _createLightningInvoice(int amount) async {
     try {
       // Show loading dialog
@@ -2568,23 +2595,23 @@ class _MainAppPageState extends State<MainAppPage> {
       
       print('Creating lightning invoice for mint: $mintUrl');
 
-      // Create lightning invoice
-      final invoiceResponse = await createLightningInvoice(
+      // Create mint quote using new simplified API
+      final quote = await createMintQuote(
         mintUrl: mintUrl,
         amount: BigInt.from(amount),
-        memo: null,
+        description: "Receive payment",
       );
 
-      // Parse the JSON response
-      final responseData = jsonDecode(invoiceResponse);
-      final invoice = responseData['invoice'] as String;
-      final quoteId = responseData['quote_id'] as String;
-      final invoiceAmount = responseData['amount'] as int;
+      final invoice = quote['request']!;
+      final invoiceAmount = int.parse(quote['amount']!);
 
       Navigator.of(context).pop(); // Close loading dialog
 
+      // Start specific monitoring for this mint URL
+      WalletService.startSpecificMonitoring([mintUrl]);
+
       // Show invoice dialog
-      _showInvoiceDialog(invoice, invoiceAmount, quoteId);
+      _showInvoiceDialog(invoice, invoiceAmount, mintUrl);
     } catch (e) {
       Navigator.of(context).pop(); // Close loading dialog
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2604,7 +2631,7 @@ class _MainAppPageState extends State<MainAppPage> {
   }
 
   /// Show lightning invoice dialog and start monitoring automatically
-  void _showInvoiceDialog(String invoice, int amount, String quoteId) {
+  void _showInvoiceDialog(String invoice, int amount, String mintUrl) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -2698,7 +2725,7 @@ class _MainAppPageState extends State<MainAppPage> {
     // Auto-start monitoring silently after a short delay
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
-        _startPaymentStatusCheck(quoteId, amount);
+        _startPaymentStatusCheck(mintUrl, amount);
       }
     });
   }
@@ -3737,13 +3764,13 @@ class _MainAppPageState extends State<MainAppPage> {
   }
 
   /// Start monitoring payment status for a lightning invoice (silent)
-  void _startPaymentStatusCheck(String quoteId, int amount) {
+  void _startPaymentStatusCheck(String mintUrl, int amount) {
     // Start periodic payment checking silently
-    _checkPaymentStatusPeriodically(quoteId, amount);
+    _checkPaymentStatusPeriodically(mintUrl, amount);
   }
 
-  /// Check payment status periodically
-  void _checkPaymentStatusPeriodically(String quoteId, int amount) async {
+  /// Check payment status periodically using new simplified API
+  void _checkPaymentStatusPeriodically(String mintUrl, int amount) async {
     const checkInterval = Duration(seconds: 5); // Check every 5 seconds
     const maxChecks = 60; // Maximum 5 minutes of checking
     
@@ -3751,7 +3778,6 @@ class _MainAppPageState extends State<MainAppPage> {
       await Future.delayed(checkInterval);
       
       try {
-        // Get database directory
         // Get the first mint URL
         final mints = await listMints();
         if (mints.isEmpty) {
@@ -3766,17 +3792,18 @@ class _MainAppPageState extends State<MainAppPage> {
             ? mintString.substring(0, lastColonIndex)
             : mintString;
 
-        // Check payment status
-        print('Dart: Calling checkLightningInvoiceStatus with quoteId: $quoteId');
-        final isPaid = await checkLightningInvoiceStatus(
+        // Check payment status using new simplified API
+        print('Dart: Calling checkMintQuoteStatus for mint: $mintUrl');
+        final result = await checkMintQuoteStatus(
           mintUrl: mintUrl,
-          quoteId: quoteId,
         );
-        print('Dart: Payment status result: $isPaid');
+        print('Dart: Payment status result: $result');
 
-        if (isPaid) {
-          // Payment received! Mint the tokens
-          await _mintTokensFromInvoice(mintUrl, quoteId, amount);
+        final mintedAmount = int.parse(result);
+
+        if (mintedAmount > 0) {
+          // Payment received and tokens minted automatically!
+          _showPaymentSuccess(mintedAmount);
           return;
         }
         
@@ -3794,76 +3821,28 @@ class _MainAppPageState extends State<MainAppPage> {
     _showPaymentError('Payment timeout - please try again');
   }
 
-  /// Mint tokens from a paid lightning invoice
-  Future<void> _mintTokensFromInvoice(String mintUrl, String quoteId, int amount) async {
-    try {
-      // Show minting dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            backgroundColor: const Color(0xFF1A1A1A),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF00)),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Minting tokens...',
-                  style: TextStyle(
-                    color: Color(0xFF00FF00),
-                    fontFamily: 'Courier',
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-
-      // Mint tokens from the paid invoice
-      print('Dart: Calling mintFromLightningInvoice with quoteId: $quoteId');
-      String? mintingResult;
-      try {
-        mintingResult = await mintFromLightningInvoice(
-          mintUrl: mintUrl,
-          quoteId: quoteId,
-        );
-        print('Dart: Minting result: $mintingResult');
-      } catch (e) {
-        print('Dart: Minting error: $e');
-        Navigator.of(context).pop(); // Close minting dialog
-        _showPaymentError('Failed to mint tokens: $e');
-        return;
-      }
-
-      Navigator.of(context).pop(); // Close minting dialog
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Payment received! $mintingResult',
-            style: const TextStyle(
-              color: Color(0xFF00FF00),
-              fontFamily: 'Courier',
-            ),
+  /// Show payment success message
+  void _showPaymentSuccess(int mintedAmount) {
+    // Close any existing dialogs
+    Navigator.of(context).pop();
+    
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Payment received! $mintedAmount sats minted to wallet',
+          style: const TextStyle(
+            color: Color(0xFF00FF00),
+            fontFamily: 'Courier',
           ),
-          backgroundColor: const Color(0xFF1A1A1A),
-          duration: const Duration(seconds: 3),
         ),
-      );
+        backgroundColor: const Color(0xFF1A1A1A),
+        duration: const Duration(seconds: 3),
+      ),
+    );
 
-      // Refresh wallet balance and transactions
-      await _refreshWalletData();
-
-    } catch (e) {
-      Navigator.of(context).pop(); // Close minting dialog
-      _showPaymentError('Failed to mint tokens: $e');
-    }
+    // Refresh wallet balance and transactions
+    _refreshWalletData();
   }
 
   /// Refresh wallet data after minting
@@ -3902,7 +3881,7 @@ class _MainAppPageState extends State<MainAppPage> {
     }
   }
 
-  void _payLightningInvoice(String invoice) {
+  void _payLightningInvoice(String invoice) async {
     if (invoice.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -3920,22 +3899,106 @@ class _MainAppPageState extends State<MainAppPage> {
       return;
     }
 
-    // TODO: Pay lightning invoice using Rust API
-    print('Paying lightning invoice: $invoice');
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Lightning payment feature coming soon!',
-          style: TextStyle(
-            color: Color(0xFF00FF00),
-            fontFamily: 'Courier',
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1A1A1A),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF00)),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Paying lightning invoice...',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      // Get the first mint URL
+      final mints = await listMints();
+      if (mints.isEmpty) {
+        Navigator.of(context).pop(); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No mints available. Please add a mint first.',
+              style: TextStyle(
+                color: Color(0xFFFF6B6B),
+                fontFamily: 'Courier',
+              ),
+            ),
+            backgroundColor: Color(0xFF1A1A1A),
+            duration: Duration(seconds: 3),
           ),
+        );
+        return;
+      }
+
+      // Extract mint URL from format "mint_url:unit"
+      final mintString = mints.first;
+      final lastColonIndex = mintString.lastIndexOf(':');
+      final mintUrl = lastColonIndex != -1 
+          ? mintString.substring(0, lastColonIndex)
+          : mintString;
+
+      // Pay lightning invoice using new API
+      print('Dart: Paying lightning invoice: $invoice');
+      final paymentStatus = await payInvoiceForWallet(
+        mintUrl: mintUrl,
+        bolt11Invoice: invoice,
+        maxFeeSats: BigInt.from(100), // Max fee of 100 sats
+      );
+      print('Dart: Payment status: $paymentStatus');
+
+      Navigator.of(context).pop(); // Close loading dialog
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Lightning payment completed! Status: $paymentStatus',
+            style: const TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: const Color(0xFF1A1A1A),
+          duration: const Duration(seconds: 3),
         ),
-        backgroundColor: Color(0xFF1A1A1A),
-        duration: Duration(seconds: 2),
-      ),
-    );
+      );
+
+      // Refresh wallet balance and transactions
+      _refreshWalletData();
+      
+    } catch (e) {
+      Navigator.of(context).pop(); // Close loading dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to pay lightning invoice: $e',
+            style: const TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: const Color(0xFF1A1A1A),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   /// Show payment error dialog
@@ -3975,5 +4038,12 @@ class _MainAppPageState extends State<MainAppPage> {
         );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    // Stop all monitoring when page is disposed
+    WalletService.stopAllMonitoring();
+    super.dispose();
   }
 }
