@@ -1519,11 +1519,6 @@ class _MainAppPageState extends State<MainAppPage> {
 
   void _showNetworkDialog() {
     bool isTorEnabled = false;
-    bool isProxyEnabled = false;
-    String proxyHost = '';
-    String proxyPort = '';
-    String proxyUsername = '';
-    String proxyPassword = '';
     
     showDialog(
       context: context,
@@ -1540,217 +1535,43 @@ class _MainAppPageState extends State<MainAppPage> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Tor Mode
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: isTorEnabled,
-                          onChanged: (value) {
-                            setState(() {
-                              isTorEnabled = value ?? false;
-                            });
-                          },
-                          activeColor: const Color(0xFF00FF00),
-                          checkColor: Colors.black,
-                        ),
-                        const Text(
-                          'Tor Mode',
-                          style: TextStyle(
-                            color: Color(0xFF00FF00),
-                            fontFamily: 'Courier',
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Route all traffic through Tor network',
-                      style: TextStyle(
-                        color: Color(0xFF666666),
-                        fontFamily: 'Courier',
-                        fontSize: 10,
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Tor Mode
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: isTorEnabled,
+                        onChanged: (value) {
+                          setState(() {
+                            isTorEnabled = value ?? false;
+                          });
+                        },
+                        activeColor: const Color(0xFF00FF00),
+                        checkColor: Colors.black,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Proxy Settings
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: isProxyEnabled,
-                          onChanged: (value) {
-                            setState(() {
-                              isProxyEnabled = value ?? false;
-                            });
-                          },
-                          activeColor: const Color(0xFF00FF00),
-                          checkColor: Colors.black,
-                        ),
-                        const Text(
-                          'Proxy Settings',
-                          style: TextStyle(
-                            color: Color(0xFF00FF00),
-                            fontFamily: 'Courier',
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    if (isProxyEnabled) ...[
-                      const SizedBox(height: 8),
                       const Text(
-                        'Proxy Host:',
+                        'Tor Mode',
                         style: TextStyle(
                           color: Color(0xFF00FF00),
                           fontFamily: 'Courier',
                           fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      TextField(
-                        onChanged: (value) => proxyHost = value,
-                        style: const TextStyle(
-                          color: Color(0xFF00FF00),
-                          fontFamily: 'Courier',
-                        ),
-                        decoration: const InputDecoration(
-                          hintText: '127.0.0.1',
-                          hintStyle: TextStyle(
-                            color: Color(0xFF666666),
-                            fontFamily: 'Courier',
-                          ),
-                          border: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF00FF00)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF00FF00)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF00FF00)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Proxy Port:',
-                        style: TextStyle(
-                          color: Color(0xFF00FF00),
-                          fontFamily: 'Courier',
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      TextField(
-                        onChanged: (value) => proxyPort = value,
-                        keyboardType: TextInputType.number,
-                        style: const TextStyle(
-                          color: Color(0xFF00FF00),
-                          fontFamily: 'Courier',
-                        ),
-                        decoration: const InputDecoration(
-                          hintText: '8080',
-                          hintStyle: TextStyle(
-                            color: Color(0xFF666666),
-                            fontFamily: 'Courier',
-                          ),
-                          border: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF00FF00)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF00FF00)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF00FF00)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Username (optional):',
-                        style: TextStyle(
-                          color: Color(0xFF00FF00),
-                          fontFamily: 'Courier',
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      TextField(
-                        onChanged: (value) => proxyUsername = value,
-                        style: const TextStyle(
-                          color: Color(0xFF00FF00),
-                          fontFamily: 'Courier',
-                        ),
-                        decoration: const InputDecoration(
-                          hintText: 'proxy_user',
-                          hintStyle: TextStyle(
-                            color: Color(0xFF666666),
-                            fontFamily: 'Courier',
-                          ),
-                          border: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF00FF00)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF00FF00)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF00FF00)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Password (optional):',
-                        style: TextStyle(
-                          color: Color(0xFF00FF00),
-                          fontFamily: 'Courier',
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      TextField(
-                        onChanged: (value) => proxyPassword = value,
-                        obscureText: true,
-                        style: const TextStyle(
-                          color: Color(0xFF00FF00),
-                          fontFamily: 'Courier',
-                        ),
-                        decoration: const InputDecoration(
-                          hintText: 'proxy_pass',
-                          hintStyle: TextStyle(
-                            color: Color(0xFF666666),
-                            fontFamily: 'Courier',
-                          ),
-                          border: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF00FF00)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF00FF00)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF00FF00)),
-                          ),
                         ),
                       ),
                     ],
-                    
-                    const SizedBox(height: 16),
-                    const Text(
-                      '⚠️ Network settings will be applied after app restart',
-                      style: TextStyle(
-                        color: Color(0xFFFF6B6B),
-                        fontFamily: 'Courier',
-                        fontSize: 10,
-                      ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Route all traffic through Tor network',
+                    style: TextStyle(
+                      color: Color(0xFF666666),
+                      fontFamily: 'Courier',
+                      fontSize: 10,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               actions: [
                 TextButton(
@@ -1766,14 +1587,7 @@ class _MainAppPageState extends State<MainAppPage> {
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    _saveNetworkSettings(
-                      isTorEnabled,
-                      isProxyEnabled,
-                      proxyHost,
-                      proxyPort,
-                      proxyUsername,
-                      proxyPassword,
-                    );
+                    _saveNetworkSettings(isTorEnabled);
                   },
                   child: const Text(
                     'Save',
@@ -1791,24 +1605,10 @@ class _MainAppPageState extends State<MainAppPage> {
     );
   }
 
-  void _saveNetworkSettings(
-    bool isTorEnabled,
-    bool isProxyEnabled,
-    String proxyHost,
-    String proxyPort,
-    String proxyUsername,
-    String proxyPassword,
-  ) {
+  void _saveNetworkSettings(bool isTorEnabled) {
     // TODO: Save network settings to storage
     print('Saving network settings:');
     print('  Tor enabled: $isTorEnabled');
-    print('  Proxy enabled: $isProxyEnabled');
-    if (isProxyEnabled) {
-      print('  Proxy host: $proxyHost');
-      print('  Proxy port: $proxyPort');
-      print('  Proxy username: $proxyUsername');
-      print('  Proxy password: ${proxyPassword.isNotEmpty ? '[HIDDEN]' : '[EMPTY]'}');
-    }
     
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -2036,7 +1836,7 @@ class _MainAppPageState extends State<MainAppPage> {
                 child: const SizedBox(height: 16),
               ),
               
-              // Transaction List
+              // Transaction List (show max 10 on home page)
               SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
@@ -2045,7 +1845,7 @@ class _MainAppPageState extends State<MainAppPage> {
                       child: _buildTransactionItem(index),
                     );
                   },
-                    childCount: _transactions.length, // Match the number of transactions in the array
+                    childCount: _transactions.length > 10 ? 10 : _transactions.length, // Show max 10 transactions on home page
                 ),
               ),
               
@@ -2333,6 +2133,8 @@ class _MainAppPageState extends State<MainAppPage> {
   }
 
   void _showEcashReceiveDialog() {
+    final TextEditingController tokenController = TextEditingController();
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -2346,82 +2148,113 @@ class _MainAppPageState extends State<MainAppPage> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Paste Cashu token from clipboard:',
-                style: TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                style: const TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                ),
-                maxLines: 4,
-                decoration: const InputDecoration(
-                  hintText: 'Paste your Cashu token here...',
-                  hintStyle: TextStyle(
-                    color: Color(0xFF666666),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Paste Cashu token:',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
                     fontFamily: 'Courier',
-                  ),
-                  border: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00FF00)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00FF00)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        // TODO: Paste from clipboard
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Paste from clipboard functionality coming soon',
-                              style: TextStyle(
-                                color: Color(0xFF00FF00),
-                                fontFamily: 'Courier',
-                              ),
-                            ),
-                            backgroundColor: Color(0xFF1A1A1A),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.content_paste, color: Color(0xFF00FF00), size: 16),
-                      label: const Text(
-                        'Paste',
-                        style: TextStyle(
-                          color: Color(0xFF00FF00),
-                          fontFamily: 'Courier',
-                          fontSize: 12,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1A1A1A),
-                        side: const BorderSide(color: Color(0xFF00FF00)),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                      ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: tokenController,
+                  style: const TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                    fontSize: 12,
+                  ),
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    hintText: 'cashuA...',
+                    hintStyle: TextStyle(
+                      color: Color(0xFF666666),
+                      fontFamily: 'Courier',
+                    ),
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xFF00FF00)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xFF00FF00)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xFF00FF00)),
                     ),
                   ),
-                ],
-              ),
-            ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          // Paste from clipboard
+                          final clipboardData = await Clipboard.getData('text/plain');
+                          if (clipboardData != null && clipboardData.text != null) {
+                            tokenController.text = clipboardData.text!;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Token pasted from clipboard',
+                                  style: TextStyle(
+                                    color: Color(0xFF00FF00),
+                                    fontFamily: 'Courier',
+                                  ),
+                                ),
+                                backgroundColor: Color(0xFF1A1A1A),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Clipboard is empty',
+                                  style: TextStyle(
+                                    color: Color(0xFFFF6B6B),
+                                    fontFamily: 'Courier',
+                                  ),
+                                ),
+                                backgroundColor: Color(0xFF1A1A1A),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.content_paste, color: Color(0xFF00FF00), size: 16),
+                        label: const Text(
+                          'Paste',
+                          style: TextStyle(
+                            color: Color(0xFF00FF00),
+                            fontFamily: 'Courier',
+                            fontSize: 12,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1A1A1A),
+                          side: const BorderSide(color: Color(0xFF00FF00)),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'The token will be automatically redeemed and added to your wallet.',
+                  style: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -2437,26 +2270,14 @@ class _MainAppPageState extends State<MainAppPage> {
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                // TODO: Process ecash token
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Ecash token processing coming soon',
-                      style: TextStyle(
-                        color: Color(0xFF00FF00),
-                        fontFamily: 'Courier',
-                      ),
-                    ),
-                    backgroundColor: Color(0xFF1A1A1A),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
+                _receiveEcashToken(tokenController.text);
               },
               child: const Text(
                 'Receive',
                 style: TextStyle(
                   color: Color(0xFF00FF00),
                   fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
@@ -2464,6 +2285,84 @@ class _MainAppPageState extends State<MainAppPage> {
         );
       },
     );
+  }
+
+  /// Receive ecash token
+  Future<void> _receiveEcashToken(String token) async {
+    // Validate token
+    if (token.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please enter a token',
+            style: TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: Color(0xFF1A1A1A),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // Show loading message
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Receiving ecash token...',
+          style: TextStyle(
+            color: Color(0xFF00FF00),
+            fontFamily: 'Courier',
+          ),
+        ),
+        backgroundColor: Color(0xFF1A1A1A),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      // Call receiveTokens API
+      final receivedAmount = await receiveTokens(token: token.trim());
+      
+      print('Ecash token received: $receivedAmount sats');
+      
+      // Show success message
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Successfully received $receivedAmount sats!',
+            style: const TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: const Color(0xFF1A1A1A),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      
+      // Refresh wallet data
+      _refreshWalletData();
+    } catch (e) {
+      print('Error receiving ecash token: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to receive token: $e',
+            style: const TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: const Color(0xFF1A1A1A),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   void _showLightningReceiveDialog() async {
@@ -3731,21 +3630,39 @@ class _MainAppPageState extends State<MainAppPage> {
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () {
-                        // TODO: Paste from clipboard
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Paste from clipboard functionality coming soon',
-                              style: TextStyle(
-                                color: Color(0xFF00FF00),
-                                fontFamily: 'Courier',
+                      onPressed: () async {
+                        // Paste from clipboard
+                        final clipboardData = await Clipboard.getData('text/plain');
+                        if (clipboardData != null && clipboardData.text != null) {
+                          invoiceController.text = clipboardData.text!;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Invoice pasted from clipboard',
+                                style: TextStyle(
+                                  color: Color(0xFF00FF00),
+                                  fontFamily: 'Courier',
+                                ),
                               ),
+                              backgroundColor: Color(0xFF1A1A1A),
+                              duration: Duration(seconds: 1),
                             ),
-                            backgroundColor: Color(0xFF1A1A1A),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Clipboard is empty',
+                                style: TextStyle(
+                                  color: Color(0xFFFF6B6B),
+                                  fontFamily: 'Courier',
+                                ),
+                              ),
+                              backgroundColor: Color(0xFF1A1A1A),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                        }
                       },
                       icon: const Icon(Icons.content_paste, color: Color(0xFF00FF00), size: 16),
                       label: const Text(

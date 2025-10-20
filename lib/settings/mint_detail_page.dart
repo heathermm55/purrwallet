@@ -67,8 +67,6 @@ class _MintDetailPageState extends State<MintDetailPage> {
                 children: [
                   _buildGeneralSection(),
                   const SizedBox(height: 16),
-                  _buildFundsSection(),
-                  const SizedBox(height: 16),
                   _buildDangerZoneSection(),
                 ],
               ),
@@ -126,45 +124,11 @@ class _MintDetailPageState extends State<MintDetailPage> {
     );
   }
 
-  Widget _buildFundsSection() {
-    return _buildSection(
-      title: 'FUNDS',
-      children: [
-        _buildActionRow(
-          'Backup funds',
-          icon: Icons.backup,
-          onTap: _backupFunds,
-        ),
-        _buildActionRow(
-          'Restore funds',
-          icon: Icons.restore,
-          onTap: _restoreFunds,
-        ),
-        _buildActionRow(
-          'Mint tokens',
-          icon: Icons.add_circle,
-          onTap: _mintTokens,
-        ),
-        _buildActionRow(
-          'Send tokens',
-          icon: Icons.send,
-          onTap: _sendTokens,
-        ),
-      ],
-    );
-  }
-
   Widget _buildDangerZoneSection() {
     return _buildSection(
       title: 'DANGER ZONE',
       titleColor: const Color(0xFFFF6B6B),
       children: [
-        _buildActionRow(
-          'Check proofs',
-          icon: Icons.verified_user,
-          textColor: const Color(0xFFFF6B6B),
-          onTap: _checkProofs,
-        ),
         _buildActionRow(
           'Delete mint',
           icon: Icons.delete_forever,
@@ -464,96 +428,6 @@ class _MintDetailPageState extends State<MintDetailPage> {
     );
   }
 
-
-  void _backupFunds() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Backup funds functionality coming soon'),
-        backgroundColor: Color(0xFF1A1A1A),
-      ),
-    );
-  }
-
-  void _restoreFunds() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Restore funds functionality coming soon'),
-        backgroundColor: Color(0xFF1A1A1A),
-      ),
-    );
-  }
-
-  void _mintTokens() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Mint tokens functionality coming soon'),
-        backgroundColor: Color(0xFF1A1A1A),
-      ),
-    );
-  }
-
-  void _sendTokens() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Send tokens functionality coming soon'),
-        backgroundColor: Color(0xFF1A1A1A),
-      ),
-    );
-  }
-
-  void _checkProofs() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text(
-          'Check Proofs',
-          style: TextStyle(
-            color: Color(0xFFFF6B6B),
-            fontFamily: 'Courier',
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: const Text(
-          'This will verify all cryptographic proofs for this mint. This operation may take some time.',
-          style: TextStyle(
-            color: Color(0xFF00FF00),
-            fontFamily: 'Courier',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(
-                color: Color(0xFF00FF00),
-                fontFamily: 'Courier',
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Checking proofs...'),
-                  backgroundColor: Color(0xFF1A1A1A),
-                ),
-              );
-            },
-            child: const Text(
-              'Check',
-              style: TextStyle(
-                color: Color(0xFFFF6B6B),
-                fontFamily: 'Courier',
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _deleteMint() {
     showDialog(
