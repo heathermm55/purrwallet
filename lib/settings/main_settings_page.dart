@@ -365,13 +365,20 @@ class SettingsPage extends StatelessWidget {
     }
   }
 
-  void _showNetworkDialog(BuildContext context) {
-    bool isTorEnabled = false;
-    bool isProxyEnabled = false;
-    String proxyHost = '';
-    String proxyPort = '';
-    String proxyUsername = '';
-    String proxyPassword = '';
+  void _showNetworkDialog(BuildContext context) async {
+    const storage = FlutterSecureStorage();
+    
+    // Load current settings
+    final torEnabledStr = await storage.read(key: 'tor_enabled') ?? 'false';
+    String torMode = await storage.read(key: 'tor_mode') ?? 'OnionOnly';
+    final proxyEnabledStr = await storage.read(key: 'proxy_enabled') ?? 'false';
+    String proxyHost = await storage.read(key: 'proxy_host') ?? '';
+    String proxyPort = await storage.read(key: 'proxy_port') ?? '';
+    String proxyUsername = await storage.read(key: 'proxy_username') ?? '';
+    String proxyPassword = await storage.read(key: 'proxy_password') ?? '';
+    
+    bool isTorEnabled = torEnabledStr == 'true';
+    bool isProxyEnabled = proxyEnabledStr == 'true';
 
     showDialog(
       context: context,
@@ -418,13 +425,73 @@ class SettingsPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Route all traffic through Tor network',
+                      'Route traffic through Tor network',
                       style: TextStyle(
                         color: Color(0xFF666666),
                         fontFamily: 'Courier',
                         fontSize: 10,
                       ),
                     ),
+                    
+                    if (isTorEnabled) ...[
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Tor Policy:',
+                        style: TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButton<String>(
+                        value: torMode,
+                        dropdownColor: const Color(0xFF1A1A1A),
+                        style: const TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'OnionOnly',
+                            child: Text(
+                              'Onion Only',
+                              style: TextStyle(
+                                color: Color(0xFF00FF00),
+                                fontFamily: 'Courier',
+                              ),
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Always',
+                            child: Text(
+                              'Always',
+                              style: TextStyle(
+                                color: Color(0xFF00FF00),
+                                fontFamily: 'Courier',
+                              ),
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            torMode = value ?? 'OnionOnly';
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        torMode == 'OnionOnly' 
+                          ? 'Only use Tor for .onion addresses'
+                          : 'Use Tor for all network requests',
+                        style: const TextStyle(
+                          color: Color(0xFF666666),
+                          fontFamily: 'Courier',
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                    
                     const SizedBox(height: 16),
 
                     // Proxy Settings
@@ -463,6 +530,7 @@ class SettingsPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       TextField(
+                        controller: TextEditingController(text: proxyHost),
                         onChanged: (value) => proxyHost = value,
                         style: const TextStyle(
                           color: Color(0xFF00FF00),
@@ -496,6 +564,7 @@ class SettingsPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       TextField(
+                        controller: TextEditingController(text: proxyPort),
                         onChanged: (value) => proxyPort = value,
                         style: const TextStyle(
                           color: Color(0xFF00FF00),
@@ -529,6 +598,7 @@ class SettingsPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       TextField(
+                        controller: TextEditingController(text: proxyUsername),
                         onChanged: (value) => proxyUsername = value,
                         style: const TextStyle(
                           color: Color(0xFF00FF00),
@@ -562,6 +632,7 @@ class SettingsPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       TextField(
+                        controller: TextEditingController(text: proxyPassword),
                         onChanged: (value) => proxyPassword = value,
                         obscureText: true,
                         style: const TextStyle(
@@ -613,7 +684,7 @@ class SettingsPage extends StatelessWidget {
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    _saveNetworkSettings(context, isTorEnabled, isProxyEnabled, proxyHost, proxyPort, proxyUsername, proxyPassword);
+                    _saveNetworkSettings(context, isTorEnabled, torMode, isProxyEnabled, proxyHost, proxyPort, proxyUsername, proxyPassword);
                   },
                   child: const Text(
                     'Save',
@@ -631,29 +702,60 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
-  void _saveNetworkSettings(BuildContext context, bool isTorEnabled, bool isProxyEnabled, String proxyHost, String proxyPort, String proxyUsername, String proxyPassword) {
-    // TODO: Save network settings to storage
-    print('Saving network settings:');
-    print('Tor enabled: $isTorEnabled');
-    print('Proxy enabled: $isProxyEnabled');
-    print('Proxy host: $proxyHost');
-    print('Proxy port: $proxyPort');
-    print('Proxy username: $proxyUsername');
-    print('Proxy password: $proxyPassword');
+  void _saveNetworkSettings(BuildContext context, bool isTorEnabled, String torMode, bool isProxyEnabled, String proxyHost, String proxyPort, String proxyUsername, String proxyPassword) async {
+    try {
+      const storage = FlutterSecureStorage();
+      
+      // Save Tor settings
+      await storage.write(key: 'tor_enabled', value: isTorEnabled.toString());
+      await storage.write(key: 'tor_mode', value: torMode);
+      
+      // Save proxy settings
+      await storage.write(key: 'proxy_enabled', value: isProxyEnabled.toString());
+      if (isProxyEnabled) {
+        await storage.write(key: 'proxy_host', value: proxyHost);
+        await storage.write(key: 'proxy_port', value: proxyPort);
+        await storage.write(key: 'proxy_username', value: proxyUsername);
+        await storage.write(key: 'proxy_password', value: proxyPassword);
+      }
+      
+      print('Saving network settings:');
+      print('Tor enabled: $isTorEnabled');
+      print('Tor mode: $torMode');
+      print('Proxy enabled: $isProxyEnabled');
+      print('Proxy host: $proxyHost');
+      print('Proxy port: $proxyPort');
+      print('Proxy username: $proxyUsername');
+      print('Proxy password: $proxyPassword');
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Network settings saved. Restart app to apply changes.',
-          style: TextStyle(
-            color: Color(0xFF00FF00),
-            fontFamily: 'Courier',
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Network settings saved. Restart app to apply changes.',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+            ),
           ),
+          backgroundColor: Color(0xFF1A1A1A),
+          duration: Duration(seconds: 3),
         ),
-        backgroundColor: Color(0xFF1A1A1A),
-        duration: Duration(seconds: 3),
-      ),
-    );
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to save network settings: $e',
+            style: const TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: const Color(0xFF1A1A1A),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
 }

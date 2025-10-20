@@ -7,7 +7,13 @@ use std::str::FromStr;
 use cdk::nuts::{CurrencyUnit, Token, Proof, Id, SecretKey, PublicKey};
 use cdk::secret::Secret;
 use cdk::amount::Amount;
-use cdk::wallet::{Wallet, MultiMintWallet, SendOptions, ReceiveOptions, WalletBuilder};
+use cdk::wallet::{Wallet, MultiMintWallet, SendOptions, ReceiveOptions};
+#[cfg(feature = "tor")]
+use cdk::wallet::{TorPolicy as CdkTorPolicy, TorConfig as CdkTorConfig, set_tor_config as cdk_set_tor_config, get_tor_config as cdk_get_tor_config};
+
+// Re-export TorConfig for FFI
+#[cfg(feature = "tor")]
+pub use cdk::wallet::TorConfig;
 use cdk::cdk_database::WalletDatabase;
 use cdk::wallet::types::{TransactionDirection, WalletKey};
 use cdk::mint_url::MintUrl;
@@ -19,6 +25,30 @@ use tokio::sync::RwLock;
 
 /// Global MultiMintWallet instance
 static MULTI_MINT_WALLET: RwLock<Option<Arc<MultiMintWallet>>> = RwLock::const_new(None);
+
+/// Global Tor configuration
+#[cfg(feature = "tor")]
+static TOR_CONFIG: RwLock<Option<TorConfig>> = RwLock::const_new(None);
+
+/// Tor usage policy for FFI
+#[cfg(feature = "tor")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TorPolicy {
+    Never,
+    OnionOnly,
+    Always,
+}
+
+#[cfg(feature = "tor")]
+impl From<TorPolicy> for CdkTorPolicy {
+    fn from(policy: TorPolicy) -> Self {
+        match policy {
+            TorPolicy::Never => CdkTorPolicy::Never,
+            TorPolicy::OnionOnly => CdkTorPolicy::OnionOnly,
+            TorPolicy::Always => CdkTorPolicy::Always,
+        }
+    }
+}
 
 
 // execute_async function removed - no longer needed with async functions
@@ -127,7 +157,6 @@ impl TryFrom<CashuProof> for Proof {
 }
 
 /// Initialize MultiMintWallet
-
 pub async fn init_multi_mint_wallet(database_dir: String, seed_hex: String) -> Result<String, String> {
     let mut wallet_guard = MULTI_MINT_WALLET.write().await;
     
@@ -147,6 +176,15 @@ pub async fn init_multi_mint_wallet(database_dir: String, seed_hex: String) -> R
 
     // Try to load existing wallets from database
     let existing_wallets = load_wallets_from_database(&localstore, &seed).await?;
+
+    // Get current Tor config if available
+    #[cfg(feature = "tor")]
+    let tor_config = {
+        let config_guard = TOR_CONFIG.read().await;
+        config_guard.clone()
+    };
+    #[cfg(not(feature = "tor"))]
+    let tor_config: Option<()> = None;
 
     let multi_mint_wallet = MultiMintWallet::new(
         Arc::new(localstore),
@@ -197,13 +235,13 @@ async fn load_wallets_from_database(localstore: &WalletSqliteDatabase, seed: &[u
 
         for unit in units {
             // Try to create wallet from existing data with the same seed
-            match WalletBuilder::new()
-                .mint_url(mint_url.clone())
-                .unit(unit.clone())
-                .localstore(Arc::new(localstore.clone()))
-                .seed(seed)
-                .build()
-            {
+            match Wallet::new(
+                &mint_url.to_string(),
+                unit.clone(),
+                Arc::new(localstore.clone()),
+                seed,
+                None,
+            ) {
                 Ok(wallet) => {
                     wallets.push(wallet);
                 }
@@ -218,32 +256,35 @@ async fn load_wallets_from_database(localstore: &WalletSqliteDatabase, seed: &[u
 }
 
 /// Add a mint to MultiMintWallet - defaults to sat unit
-
 pub async fn add_mint(mint_url: String) -> Result<String, String> {
-        let wallet_guard = MULTI_MINT_WALLET.read().await;
-        let multi_mint_wallet = wallet_guard.as_ref()
-            .ok_or("MultiMintWallet not initialized")?;
+    let wallet_guard = MULTI_MINT_WALLET.read().await;
+    let multi_mint_wallet = wallet_guard.as_ref()
+        .ok_or("MultiMintWallet not initialized")?;
 
-        let mint_url_parsed = MintUrl::from_str(&mint_url)
-            .map_err(|e| format!("Invalid mint URL: {}", e))?;
-        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
-        
-        // Check if wallet already exists
-        if multi_mint_wallet.has(&wallet_key).await {
-            return Ok("Mint already exists".to_string());
-        }
+    let mint_url_parsed = MintUrl::from_str(&mint_url)
+        .map_err(|e| format!("Invalid mint URL: {}", e))?;
+    let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
+    
+    // Check if wallet already exists
+    if multi_mint_wallet.has(&wallet_key).await {
+        return Ok("Mint already exists".to_string());
+    }
 
-        // Create and add wallet
-        let wallet = multi_mint_wallet.create_and_add_wallet(&mint_url, CurrencyUnit::Sat, None).await
-            .map_err(|e| format!("Failed to create wallet: {}", e))?;
+    // Create and add wallet - Tor configuration is now global
+    let wallet = multi_mint_wallet.create_and_add_wallet(
+        &mint_url,
+        CurrencyUnit::Sat,
+        None,
+    ).await
+    .map_err(|e| format!("Failed to create wallet: {}", e))?;
 
-        wallet.load_mint_keysets().await
-            .map_err(|e| format!("Failed to load keysets: {}", e))?;
+    wallet.load_mint_keysets().await
+        .map_err(|e| format!("Failed to load keysets: {}", e))?;
 
-        wallet.get_active_mint_keyset().await
-            .map_err(|e| format!("Failed to get active keyset: {}", e))?;
+    wallet.get_active_mint_keyset().await
+        .map_err(|e| format!("Failed to get active keyset: {}", e))?;
 
-        Ok("Mint added successfully".to_string())
+    Ok("Mint added successfully".to_string())
 }
 
 /// Remove a mint from MultiMintWallet - defaults to sat unit
@@ -916,4 +957,140 @@ pub async fn validate_mnemonic_phrase(mnemonic_phrase: String) -> Result<bool, S
         Ok(_) => Ok(true),
         Err(_) => Ok(false),
     }
+}
+
+/// Set Tor configuration
+#[cfg(feature = "tor")]
+pub async fn set_tor_config(policy: TorPolicy) -> Result<(), String> {
+    let tor_config = TorConfig {
+        policy: policy.into(),
+        client_config: None,
+        accept_invalid_certs: false,
+    };
+    
+    // Set Tor configuration
+    cdk_set_tor_config(tor_config.clone()).await
+        .map_err(|e| format!("Failed to set Tor config: {}", e))?;
+    
+    // Store in local state for compatibility
+    let mut config_guard = TOR_CONFIG.write().await;
+    *config_guard = Some(tor_config);
+    
+    Ok(())
+}
+
+/// Get current Tor configuration
+#[cfg(feature = "tor")]
+pub async fn get_tor_config() -> Result<TorPolicy, String> {
+    // Try to get from global config first
+    if let Some(global_config) = cdk_get_tor_config() {
+        let policy = match global_config.policy {
+            CdkTorPolicy::Never => TorPolicy::Never,
+            CdkTorPolicy::OnionOnly => TorPolicy::OnionOnly,
+            CdkTorPolicy::Always => TorPolicy::Always,
+        };
+        return Ok(policy);
+    }
+    
+    // Fallback to local state
+    let config_guard = TOR_CONFIG.read().await;
+    match config_guard.as_ref() {
+        Some(config) => {
+            let policy = match config.policy {
+                CdkTorPolicy::Never => TorPolicy::Never,
+                CdkTorPolicy::OnionOnly => TorPolicy::OnionOnly,
+                CdkTorPolicy::Always => TorPolicy::Always,
+            };
+            Ok(policy)
+        },
+        None => Ok(TorPolicy::Never),
+    }
+}
+
+/// Check if Tor is currently enabled
+#[cfg(feature = "tor")]
+pub async fn is_tor_enabled() -> Result<bool, String> {
+    // Check global config first
+    if let Some(global_config) = cdk_get_tor_config() {
+        return Ok(!matches!(global_config.policy, CdkTorPolicy::Never));
+    }
+    
+    // Fallback to local state
+    let config_guard = TOR_CONFIG.read().await;
+    match config_guard.as_ref() {
+        Some(config) => {
+            match config.policy {
+                CdkTorPolicy::Never => Ok(false),
+                _ => Ok(true),
+            }
+        },
+        None => Ok(false),
+    }
+}
+
+/// Reinitialize MultiMintWallet with current Tor configuration
+#[cfg(feature = "tor")]
+pub async fn reinitialize_with_tor_config(database_dir: String, seed_hex: String) -> Result<String, String> {
+    // Get current Tor config
+    let tor_config = {
+        let config_guard = TOR_CONFIG.read().await;
+        config_guard.clone()
+    };
+    
+    // Clear existing wallet
+    {
+        let mut wallet_guard = MULTI_MINT_WALLET.write().await;
+        *wallet_guard = None;
+    }
+    
+    // Reinitialize with Tor config
+    init_multi_mint_wallet_with_tor(database_dir, seed_hex, tor_config).await
+}
+
+/// Initialize MultiMintWallet with Tor configuration
+#[cfg(feature = "tor")]
+pub async fn init_multi_mint_wallet_with_tor(
+    database_dir: String, 
+    seed_hex: String, 
+    tor_config: Option<TorConfig>
+) -> Result<String, String> {
+    // Store Tor config first
+    if let Some(tor_config) = tor_config {
+        let mut config_guard = TOR_CONFIG.write().await;
+        *config_guard = Some(tor_config);
+    }
+    
+    // Use the regular init function which will pick up the Tor config
+    init_multi_mint_wallet(database_dir, seed_hex).await
+}
+
+/// Non-Tor fallback implementations to keep FFI stable
+#[cfg(not(feature = "tor"))]
+pub async fn set_tor_config(_policy: ()) -> Result<(), String> {
+    Err("Tor feature not enabled".to_string())
+}
+
+#[cfg(not(feature = "tor"))]
+pub async fn get_tor_config() -> Result<(), String> {
+    Err("Tor feature not enabled".to_string())
+}
+
+#[cfg(not(feature = "tor"))]
+pub async fn is_tor_enabled() -> Result<bool, String> {
+    Ok(false)
+}
+
+#[cfg(not(feature = "tor"))]
+pub async fn reinitialize_with_tor_config(_database_dir: String, _seed_hex: String) -> Result<String, String> {
+    Err("Tor feature not enabled".to_string())
+}
+
+#[cfg(not(feature = "tor"))]
+pub async fn init_multi_mint_wallet_with_tor(
+    database_dir: String, 
+    seed_hex: String, 
+    _tor_config: Option<()>
+) -> Result<String, String> {
+    // Fallback to regular init without Tor
+    init_multi_mint_wallet(database_dir, seed_hex).await
 }

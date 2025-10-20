@@ -7,7 +7,7 @@ import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These functions are ignored because they are not marked as `pub`: `extract_supported_nuts`, `get_database_path`, `load_wallets_from_database`, `parse_seed_from_hex`, `wallet_database_exists`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `try_from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `try_from`
 
 /// Initialize MultiMintWallet
 Future<String> initMultiMintWallet({
@@ -158,6 +158,40 @@ Future<bool> validateMnemonicPhrase({required String mnemonicPhrase}) => RustLib
     .api
     .crateApiCashuValidateMnemonicPhrase(mnemonicPhrase: mnemonicPhrase);
 
+/// Set Tor configuration
+Future<void> setTorConfig({required TorPolicy policy}) =>
+    RustLib.instance.api.crateApiCashuSetTorConfig(policy: policy);
+
+/// Get current Tor configuration
+Future<TorPolicy> getTorConfig() =>
+    RustLib.instance.api.crateApiCashuGetTorConfig();
+
+/// Check if Tor is currently enabled
+Future<bool> isTorEnabled() => RustLib.instance.api.crateApiCashuIsTorEnabled();
+
+/// Reinitialize MultiMintWallet with current Tor configuration
+Future<String> reinitializeWithTorConfig({
+  required String databaseDir,
+  required String seedHex,
+}) => RustLib.instance.api.crateApiCashuReinitializeWithTorConfig(
+  databaseDir: databaseDir,
+  seedHex: seedHex,
+);
+
+/// Initialize MultiMintWallet with Tor configuration
+Future<String> initMultiMintWalletWithTor({
+  required String databaseDir,
+  required String seedHex,
+  TorConfig? torConfig,
+}) => RustLib.instance.api.crateApiCashuInitMultiMintWalletWithTor(
+  databaseDir: databaseDir,
+  seedHex: seedHex,
+  torConfig: torConfig,
+);
+
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<TorConfig>>
+abstract class TorConfig implements RustOpaqueInterface {}
+
 /// Cashu proof structure for FFI
 class CashuProof {
   final String id;
@@ -265,6 +299,9 @@ class MintInfo {
           publicKey == other.publicKey &&
           additionalInfo == other.additionalInfo;
 }
+
+/// Tor usage policy for FFI
+enum TorPolicy { never, onionOnly, always }
 
 /// Transaction information structure
 class TransactionInfo {

@@ -37,6 +37,9 @@ class WalletService {
       final documentsDir = await getApplicationDocumentsDirectory();
       final databaseDir = documentsDir.path;
 
+      // Load Tor configuration
+      await _loadAndApplyTorConfig();
+
       // Initialize MultiMintWallet
       final initResult = initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
       print('MultiMintWallet init result: $initResult');
@@ -47,6 +50,60 @@ class WalletService {
       return initResult;
     } catch (e) {
       throw Exception('Failed to initialize wallet: $e');
+    }
+  }
+
+  /// Reinitialize wallet with new Tor configuration
+  static Future<String> reinitializeWalletWithTorConfig() async {
+    try {
+      final seedHex = await getStoredSeed();
+      if (seedHex == null) {
+        throw Exception('No seed found in storage');
+      }
+
+      // Get documents directory
+      final documentsDir = await getApplicationDocumentsDirectory();
+      final databaseDir = documentsDir.path;
+
+      // Load and apply Tor configuration
+      await _loadAndApplyTorConfig();
+
+      // Reinitialize MultiMintWallet with Tor config
+      final initResult = reinitializeWithTorConfig(databaseDir: databaseDir, seedHex: seedHex);
+      print('MultiMintWallet reinit with Tor result: $initResult');
+
+      return initResult;
+    } catch (e) {
+      throw Exception('Failed to reinitialize wallet with Tor config: $e');
+    }
+  }
+
+  /// Load and apply Tor configuration from storage
+  static Future<void> _loadAndApplyTorConfig() async {
+    try {
+      final torEnabled = await _secureStorage.read(key: 'tor_enabled');
+      final torMode = await _secureStorage.read(key: 'tor_mode');
+      
+      if (torEnabled == 'true' && torMode != null) {
+        // Convert string to TorPolicy enum
+        TorPolicy policy;
+        switch (torMode) {
+          case 'OnionOnly':
+            policy = TorPolicy.onionOnly;
+            break;
+          case 'Always':
+            policy = TorPolicy.always;
+            break;
+          default:
+            policy = TorPolicy.onionOnly;
+        }
+        
+        // Apply Tor configuration
+        await setTorConfig(policy: policy);
+        print('Applied Tor configuration: $torMode');
+      }
+    } catch (e) {
+      print('Failed to load Tor configuration: $e');
     }
   }
 
