@@ -4,6 +4,9 @@ PODS:
     - Flutter
   - isar_flutter_libs (1.0.0):
     - Flutter
+  - mobile_scanner (7.0.0):
+    - Flutter
+    - FlutterMacOS
   - path_provider_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -14,6 +17,7 @@ DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)
   - isar_flutter_libs (from `.symlinks/plugins/isar_flutter_libs/ios`)
+  - mobile_scanner (from `.symlinks/plugins/mobile_scanner/darwin`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
   - rust_lib_nostr_rust (from `.symlinks/plugins/rust_lib_nostr_rust/ios`)
 
@@ -24,6 +28,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/flutter_secure_storage/ios"
   isar_flutter_libs:
     :path: ".symlinks/plugins/isar_flutter_libs/ios"
+  mobile_scanner:
+    :path: ".symlinks/plugins/mobile_scanner/darwin"
   path_provider_foundation:
     :path: ".symlinks/plugins/path_provider_foundation/darwin"
   rust_lib_nostr_rust:
@@ -33,6 +39,7 @@ SPEC CHECKSUMS:
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
   flutter_secure_storage: d33dac7ae2ea08509be337e775f6b59f1ff45f12
   isar_flutter_libs: b69f437aeab9c521821c3f376198c4371fa21073
+  mobile_scanner: 77265f3dc8d580810e91849d4a0811a90467ed5e
   path_provider_foundation: 2b6b4c569c0fb62ec74538f866245ac84301af46
   rust_lib_nostr_rust: c50b5cde518666a4d2a31fcdb2ff725f237cd36e
 

@@ -12,6 +12,7 @@ import 'accounts/services/user_service.dart';
 import 'dart:math';
 import 'settings/main_settings_page.dart';
 import 'wallet/services/wallet_service.dart';
+import 'qr_scanner_page.dart';
 
 /// Main app page - Wallet interface
 class MainAppPage extends StatefulWidget {
@@ -2900,135 +2901,23 @@ class _MainAppPageState extends State<MainAppPage> {
     WalletService.startMintQuoteMonitoring([mintUrl]);
   }
 
-  void _showScanDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
-          title: const Text(
-            'Scan QR Code',
-            style: TextStyle(
-              color: Color(0xFF00FF00),
-              fontFamily: 'Courier',
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.qr_code_scanner,
-                color: Color(0xFF00FF00),
-                size: 64,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Scan QR Code',
-                style: TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Scan a Cashu token or Lightning invoice',
-                style: TextStyle(
-                  color: Color(0xFF666666),
-                  fontFamily: 'Courier',
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        _startQRScanner();
-                      },
-                      icon: const Icon(Icons.qr_code_scanner, color: Color(0xFF00FF00), size: 16),
-                      label: const Text(
-                        'Start Scanner',
-                        style: TextStyle(
-                          color: Color(0xFF00FF00),
-                          fontFamily: 'Courier',
-                          fontSize: 12,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1A1A1A),
-                        side: const BorderSide(color: Color(0xFF00FF00)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        _showManualInputDialog();
-                      },
-                      icon: const Icon(Icons.keyboard, color: Color(0xFF00FF00), size: 16),
-                      label: const Text(
-                        'Manual Input',
-                        style: TextStyle(
-                          color: Color(0xFF00FF00),
-                          fontFamily: 'Courier',
-                          fontSize: 12,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1A1A1A),
-                        side: const BorderSide(color: Color(0xFF00FF00)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+  Future<void> _showScanDialog() async {
+    // Navigate to QR scanner page
+    final result = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (context) => const QRScannerPage()),
     );
-  }
 
-  void _startQRScanner() {
-    // TODO: Implement QR scanner using camera
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'QR Scanner functionality coming soon',
-          style: TextStyle(
-            color: Color(0xFF00FF00),
-            fontFamily: 'Courier',
-          ),
-        ),
-        backgroundColor: Color(0xFF1A1A1A),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    // Process the scanned result
+    if (result != null && mounted) {
+      if (result == '__MANUAL_INPUT__') {
+        // User chose manual input
+        _showManualInputDialog();
+      } else {
+        // Process scanned QR code
+        _processScannedContent(result);
+      }
+    }
   }
 
   void _showManualInputDialog() {
@@ -3173,53 +3062,38 @@ class _MainAppPageState extends State<MainAppPage> {
       return;
     }
 
-    // TODO: Process scanned content (Cashu token or Lightning invoice)
     print('Processing scanned content: ${content.substring(0, content.length > 50 ? 50 : content.length)}...');
     
+    // Trim whitespace
+    final trimmedContent = content.trim();
+    
     // Determine content type and process accordingly
-    if (content.startsWith('cashuA') || content.startsWith('cashu1')) {
-      // Cashu token
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Processing Cashu token...',
-            style: TextStyle(
-              color: Color(0xFF00FF00),
-              fontFamily: 'Courier',
-            ),
-          ),
-          backgroundColor: Color(0xFF1A1A1A),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    } else if (content.startsWith('lnbc') || content.startsWith('lightning:')) {
-      // Lightning invoice
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Processing Lightning invoice...',
-            style: TextStyle(
-              color: Color(0xFF00FF00),
-              fontFamily: 'Courier',
-            ),
-          ),
-          backgroundColor: Color(0xFF1A1A1A),
-          duration: Duration(seconds: 2),
-        ),
-      );
+    if (trimmedContent.toLowerCase().startsWith('cashu')) {
+      // Cashu token - receive ecash (supports cashuA, cashuB, cashu1, etc.)
+      print('Detected Cashu token');
+      _receiveEcashToken(trimmedContent);
+    } else if (trimmedContent.toLowerCase().startsWith('lnbc') || 
+               trimmedContent.toLowerCase().startsWith('lightning:')) {
+      // Lightning invoice - send via lightning
+      print('Detected Lightning invoice');
+      // Remove lightning: prefix if present
+      final invoice = trimmedContent.startsWith('lightning:') 
+          ? trimmedContent.substring(10) 
+          : trimmedContent;
+      _showLightningSendDialog(invoice: invoice);
     } else {
       // Unknown format
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Unknown content format',
-            style: TextStyle(
+            'Unknown content format. Expected Cashu token (cashu...) or Lightning invoice (lnbc...)',
+            style: const TextStyle(
               color: Color(0xFFFF6B6B),
               fontFamily: 'Courier',
             ),
           ),
-          backgroundColor: Color(0xFF1A1A1A),
-          duration: Duration(seconds: 2),
+          backgroundColor: const Color(0xFF1A1A1A),
+          duration: const Duration(seconds: 3),
         ),
       );
     }
@@ -3572,8 +3446,8 @@ class _MainAppPageState extends State<MainAppPage> {
 
   // P2PK related functions removed - will be implemented later
 
-  void _showLightningSendDialog() {
-    final TextEditingController invoiceController = TextEditingController();
+  void _showLightningSendDialog({String? invoice}) {
+    final TextEditingController invoiceController = TextEditingController(text: invoice);
     
     showDialog(
       context: context,
