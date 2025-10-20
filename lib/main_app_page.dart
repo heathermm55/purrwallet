@@ -979,6 +979,13 @@ class _MainAppPageState extends State<MainAppPage> {
             duration: const Duration(seconds: 2),
           ),
         );
+        
+        // Reopen mints dialog to show updated list
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            _showMintsDialog();
+          }
+        });
       }
     } catch (e) {
       print('Failed to add mint: $e');
@@ -2009,9 +2016,7 @@ class _MainAppPageState extends State<MainAppPage> {
                         ),
                       ),
                       TextButton(
-                        onPressed: () {
-                          // TODO: Navigate to full transaction list
-                        },
+                        onPressed: _showAllTransactionsDialog,
                         child: const Text(
                           'VIEW ALL',
                           style: TextStyle(
@@ -2145,19 +2150,21 @@ class _MainAppPageState extends State<MainAppPage> {
     }
     
     final tx = _transactions[index];
-    final isReceived = tx.direction == 'in';
+    final isReceived = tx.direction == 'incoming';
     final time = DateTime.fromMillisecondsSinceEpoch(tx.timestamp.toInt());
     final timeStr = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
     
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF333333)),
-      ),
-      child: Row(
+    return InkWell(
+      onTap: () => _showTransactionDetailDialog(tx),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF333333)),
+        ),
+        child: Row(
         children: [
           Container(
             width: 40,
@@ -2186,7 +2193,7 @@ class _MainAppPageState extends State<MainAppPage> {
                   ),
                 ),
                 Text(
-                  'Cashu Transaction',
+                  isReceived ? 'Lightning Receive' : 'Ecash Payment',
                   style: const TextStyle(
                     color: Color(0xFF666666),
                     fontFamily: 'Courier',
@@ -2226,6 +2233,7 @@ class _MainAppPageState extends State<MainAppPage> {
             ],
           ),
         ],
+        ),
       ),
     );
   }
@@ -2853,8 +2861,10 @@ class _MainAppPageState extends State<MainAppPage> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          content: SingleChildScrollView(
-            child: Column(
+          content: SizedBox(
+            width: 300,
+            child: SingleChildScrollView(
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -2956,6 +2966,7 @@ class _MainAppPageState extends State<MainAppPage> {
                 ),
               ),
               ],
+              ),
             ),
           ),
           actions: [
@@ -2977,12 +2988,17 @@ class _MainAppPageState extends State<MainAppPage> {
       },
     );
     
-    // Auto-start monitoring silently after a short delay
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        _startPaymentStatusCheck(mintUrl, amount);
+    // Set up callback for payment received
+    WalletService.onMintedAmountReceived = (result) {
+      final mintedAmount = int.parse(result['total_minted'] ?? '0');
+      if (mintedAmount > 0 && mounted) {
+        _showPaymentSuccess(mintedAmount);
+        WalletService.stopMintQuoteMonitoring();
       }
-    });
+    };
+    
+    // Start monitoring using WalletService
+    WalletService.startMintQuoteMonitoring([mintUrl]);
   }
 
   void _showScanDialog() {
@@ -4018,69 +4034,9 @@ class _MainAppPageState extends State<MainAppPage> {
     );
   }
 
-  /// Start monitoring payment status for a lightning invoice (silent)
-  void _startPaymentStatusCheck(String mintUrl, int amount) {
-    // Start periodic payment checking silently
-    _checkPaymentStatusPeriodically(mintUrl, amount);
-  }
-
-  /// Check payment status periodically using new simplified API
-  void _checkPaymentStatusPeriodically(String mintUrl, int amount) async {
-    const checkInterval = Duration(seconds: 5); // Check every 5 seconds
-    const maxChecks = 60; // Maximum 5 minutes of checking
-    
-    for (int i = 0; i < maxChecks; i++) {
-      await Future.delayed(checkInterval);
-      
-      try {
-        // Get the first mint URL
-        final mints = await listMints();
-        if (mints.isEmpty) {
-          _showPaymentError('No mints available');
-          return;
-        }
-
-        // Extract mint URL from format "mint_url:unit"
-        final mintString = mints.first;
-        final lastColonIndex = mintString.lastIndexOf(':');
-        final mintUrl = lastColonIndex != -1 
-            ? mintString.substring(0, lastColonIndex)
-            : mintString;
-
-        // Check payment status using new simplified API
-        print('Dart: Calling checkMintQuoteStatus for mint: $mintUrl');
-        final result = await checkMintQuoteStatus(
-          mintUrl: mintUrl,
-        );
-        print('Dart: Payment status result: $result');
-
-        final mintedAmount = int.parse(result);
-
-        if (mintedAmount > 0) {
-          // Payment received and tokens minted automatically!
-          _showPaymentSuccess(mintedAmount);
-          return;
-        }
-        
-        print('Payment check ${i + 1}/$maxChecks: Not paid yet');
-        
-      } catch (e) {
-        print('Error checking payment status: $e');
-        if (i == maxChecks - 1) {
-          _showPaymentError('Failed to check payment status: $e');
-        }
-      }
-    }
-    
-    // Timeout reached
-    _showPaymentError('Payment timeout - please try again');
-  }
-
+ 
   /// Show payment success message
   void _showPaymentSuccess(int mintedAmount) {
-    // Close any existing dialogs
-    Navigator.of(context).pop();
-    
     // Show success message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -4098,6 +4054,195 @@ class _MainAppPageState extends State<MainAppPage> {
 
     // Refresh wallet balance and transactions
     _refreshWalletData();
+  }
+
+  /// Show all transactions dialog
+  void _showAllTransactionsDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: const Color(0xFF0D0D0D),
+          insetPadding: const EdgeInsets.all(16),
+          child: Container(
+            width: MediaQuery.of(context).size.width - 32,
+            height: MediaQuery.of(context).size.height * 0.8,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'ALL TRANSACTIONS',
+                      style: TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Color(0xFF00FF00)),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(color: Color(0xFF333333)),
+                const SizedBox(height: 16),
+                // Transaction list
+                Expanded(
+                  child: _transactions.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No transactions yet',
+                            style: TextStyle(
+                              color: Color(0xFF666666),
+                              fontFamily: 'Courier',
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: _transactions.length,
+                          itemBuilder: (context, index) {
+                            return _buildTransactionItem(index);
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Show transaction detail dialog
+  void _showTransactionDetailDialog(TransactionInfo tx) {
+    final isReceived = tx.direction == 'incoming';
+    final time = DateTime.fromMillisecondsSinceEpoch(tx.timestamp.toInt());
+    final dateStr = '${time.year}-${time.month.toString().padLeft(2, '0')}-${time.day.toString().padLeft(2, '0')} ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: Text(
+            isReceived ? 'Lightning Invoice' : 'Ecash Payment',
+            style: const TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: SizedBox(
+            width: 300,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Amount
+                  _buildDetailRow('Amount', '${tx.amount} sats'),
+                  const SizedBox(height: 12),
+                  
+                  // Direction
+                  _buildDetailRow('Type', isReceived ? 'Receive' : 'Send'),
+                  const SizedBox(height: 12),
+                  
+                  // Date
+                  _buildDetailRow('Date', dateStr),
+                  const SizedBox(height: 12),
+                  
+                  // Transaction ID
+                  _buildDetailRow('Transaction ID', tx.id, isMonospace: true),
+                  const SizedBox(height: 12),
+                  
+                  // Memo (if exists)
+                  if (tx.memo != null && tx.memo!.isNotEmpty) ...[
+                    _buildDetailRow('Memo', tx.memo!),
+                    const SizedBox(height: 12),
+                  ],
+                  
+                  // Status
+                  Row(
+                    children: [
+                      const Text(
+                        'Status: ',
+                        style: TextStyle(
+                          color: Color(0xFF666666),
+                          fontFamily: 'Courier',
+                          fontSize: 12,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00FF00).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFF00FF00)),
+                        ),
+                        child: const Text(
+                          'CONFIRMED',
+                          style: TextStyle(
+                            color: Color(0xFF00FF00),
+                            fontFamily: 'Courier',
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Close',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Build detail row for transaction details
+  Widget _buildDetailRow(String label, String value, {bool isMonospace = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$label:',
+          style: const TextStyle(
+            color: Color(0xFF666666),
+            fontFamily: 'Courier',
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 4),
+        SelectableText(
+          value,
+          style: TextStyle(
+            color: const Color(0xFF00FF00),
+            fontFamily: isMonospace ? 'Courier' : null,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
   }
 
   /// Refresh wallet data after minting
@@ -4256,49 +4401,12 @@ class _MainAppPageState extends State<MainAppPage> {
     }
   }
 
-  /// Show payment error dialog
-  void _showPaymentError(String error) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
-          title: const Text(
-            'Payment Error',
-            style: TextStyle(
-              color: Color(0xFFFF6B6B),
-              fontFamily: 'Courier',
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Text(
-            error,
-            style: const TextStyle(
-              color: Color(0xFFFF6B6B),
-              fontFamily: 'Courier',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                'OK',
-                style: TextStyle(
-                  color: Color(0xFFFF6B6B),
-                  fontFamily: 'Courier',
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   void dispose() {
-    // Stop all monitoring when page is disposed
-    WalletService.stopAllMonitoring();
+    // Stop specific monitoring when page is disposed, but keep global monitoring running
+    WalletService.stopMintQuoteMonitoring();
+    WalletService.stopMeltQuoteMonitoring();
+    // Don't stop global monitoring - it should continue running in the background
     super.dispose();
   }
 }

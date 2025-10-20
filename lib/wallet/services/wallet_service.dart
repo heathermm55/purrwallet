@@ -243,7 +243,7 @@ class WalletService {
     int checkCount = 0;
     const maxChecks = 60; // 5 minutes = 60 * 5 seconds
 
-    _mintQuoteMonitorTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _mintQuoteMonitorTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       checkCount++;
       
       // Check specific mint URLs
@@ -271,7 +271,7 @@ class WalletService {
     int checkCount = 0;
     const maxChecks = 60; // 5 minutes = 60 * 5 seconds
 
-    _meltQuoteMonitorTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _meltQuoteMonitorTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       checkCount++;
       
       // Check specific melt quotes
@@ -329,7 +329,10 @@ class WalletService {
       }
 
     } catch (e) {
-      print('Error in global melt monitoring: $e');
+      // Silently ignore JSON parsing errors (quote not paid yet or expired)
+      if (!e.toString().contains('expected value at line 1 column 1')) {
+        print('Error in global melt monitoring: $e');
+      }
     }
   }
 
@@ -354,7 +357,10 @@ class WalletService {
       }
 
     } catch (e) {
-      print('Error in global monitoring: $e');
+      // Silently ignore JSON parsing errors (quote not paid yet or expired)
+      if (!e.toString().contains('expected value at line 1 column 1')) {
+        print('Error in global monitoring: $e');
+      }
     }
   }
 
@@ -378,7 +384,10 @@ class WalletService {
             print('Specific monitoring: Minted $mintedAmount sats from $mintUrl');
           }
         } catch (e) {
-          print('Error checking mint $mintUrl: $e');
+          // Silently ignore JSON parsing errors (quote not paid yet or expired)
+          if (!e.toString().contains('expected value at line 1 column 1')) {
+            print('Error checking mint $mintUrl: $e');
+          }
         }
       }
 
@@ -397,7 +406,10 @@ class WalletService {
       }
 
     } catch (e) {
-      print('Error in specific monitoring: $e');
+      // Silently ignore JSON parsing errors (quote not paid yet or expired)
+      if (!e.toString().contains('expected value at line 1 column 1')) {
+        print('Error in specific monitoring: $e');
+      }
     }
   }
 
@@ -426,7 +438,10 @@ class WalletService {
       }
 
     } catch (e) {
-      print('Error in specific melt monitoring: $e');
+      // Silently ignore JSON parsing errors (quote not paid yet or expired)
+      if (!e.toString().contains('expected value at line 1 column 1')) {
+        print('Error in specific melt monitoring: $e');
+      }
     }
   }
 
