@@ -6,11 +6,11 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `execute_async`, `extract_supported_nuts`, `get_database_path`, `load_wallets_from_database`, `parse_seed_from_hex`, `wallet_database_exists`
+// These functions are ignored because they are not marked as `pub`: `extract_supported_nuts`, `get_database_path`, `load_wallets_from_database`, `parse_seed_from_hex`, `wallet_database_exists`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `try_from`
 
 /// Initialize MultiMintWallet
-String initMultiMintWallet({
+Future<String> initMultiMintWallet({
   required String databaseDir,
   required String seedHex,
 }) => RustLib.instance.api.crateApiCashuInitMultiMintWallet(
@@ -18,30 +18,29 @@ String initMultiMintWallet({
   seedHex: seedHex,
 );
 
-/// Load existing wallets from database
-String loadExistingWallets() =>
-    RustLib.instance.api.crateApiCashuLoadExistingWallets();
-
 /// Add a mint to MultiMintWallet
-String addMint({required String mintUrl, required String unit}) =>
+Future<String> addMint({required String mintUrl, required String unit}) =>
     RustLib.instance.api.crateApiCashuAddMint(mintUrl: mintUrl, unit: unit);
 
 /// Remove a mint from MultiMintWallet
-String removeMint({required String mintUrl, required String unit}) =>
+Future<String> removeMint({required String mintUrl, required String unit}) =>
     RustLib.instance.api.crateApiCashuRemoveMint(mintUrl: mintUrl, unit: unit);
 
 /// List all mints in MultiMintWallet
-List<String> listMints() => RustLib.instance.api.crateApiCashuListMints();
+Future<List<String>> listMints() =>
+    RustLib.instance.api.crateApiCashuListMints();
 
 /// Check if wallet exists
-bool walletExists({required String mintUrl, required String databaseDir}) =>
-    RustLib.instance.api.crateApiCashuWalletExists(
-      mintUrl: mintUrl,
-      databaseDir: databaseDir,
-    );
+Future<bool> walletExists({
+  required String mintUrl,
+  required String databaseDir,
+}) => RustLib.instance.api.crateApiCashuWalletExists(
+  mintUrl: mintUrl,
+  databaseDir: databaseDir,
+);
 
 /// Create a new CDK Wallet
-String createWallet({
+Future<String> createWallet({
   required String mintUrl,
   required String unit,
   required String databaseDir,
@@ -51,132 +50,97 @@ String createWallet({
   databaseDir: databaseDir,
 );
 
-/// Get wallet balance
-BigInt getWalletBalance({
+/// Get wallet information quickly (without network requests)
+Future<WalletInfo> getWalletInfoFast({
   required String mintUrl,
   required String unit,
-  required String databaseDir,
-}) => RustLib.instance.api.crateApiCashuGetWalletBalance(
+}) => RustLib.instance.api.crateApiCashuGetWalletInfoFast(
   mintUrl: mintUrl,
   unit: unit,
-  databaseDir: databaseDir,
 );
 
-/// Get wallet information
-WalletInfo getWalletInfo({
-  required String mintUrl,
-  required String unit,
-  required String databaseDir,
-}) => RustLib.instance.api.crateApiCashuGetWalletInfo(
-  mintUrl: mintUrl,
-  unit: unit,
-  databaseDir: databaseDir,
-);
+/// Get all transactions from all mints (fast, no network requests)
+Future<List<TransactionInfo>> getAllTransactions() =>
+    RustLib.instance.api.crateApiCashuGetAllTransactions();
+
+/// Get all wallet balances from all mints (fast, no network requests)
+Future<Map<String, BigInt>> getAllBalances() =>
+    RustLib.instance.api.crateApiCashuGetAllBalances();
 
 /// Get mint information from NUT-06 endpoint
-MintInfo getMintInfo({
-  required String mintUrl,
-  required String unit,
-  required String databaseDir,
-}) => RustLib.instance.api.crateApiCashuGetMintInfo(
-  mintUrl: mintUrl,
-  unit: unit,
-  databaseDir: databaseDir,
-);
+Future<MintInfo> getMintInfo({required String mintUrl, required String unit}) =>
+    RustLib.instance.api.crateApiCashuGetMintInfo(mintUrl: mintUrl, unit: unit);
 
 /// Send tokens
-String sendTokens({
+Future<String> sendTokens({
   required String mintUrl,
   required String unit,
   required BigInt amount,
   String? memo,
-  required String databaseDir,
 }) => RustLib.instance.api.crateApiCashuSendTokens(
   mintUrl: mintUrl,
   unit: unit,
   amount: amount,
   memo: memo,
-  databaseDir: databaseDir,
 );
 
 /// Receive tokens
-BigInt receiveTokens({
+Future<BigInt> receiveTokens({
   required String mintUrl,
   required String unit,
   required String token,
   String? memo,
-  required String databaseDir,
 }) => RustLib.instance.api.crateApiCashuReceiveTokens(
   mintUrl: mintUrl,
   unit: unit,
   token: token,
   memo: memo,
-  databaseDir: databaseDir,
 );
 
 /// Create mint quote
-Map<String, String> createMintQuote({
+Future<Map<String, String>> createMintQuote({
   required String mintUrl,
   required String unit,
   required BigInt amount,
-  required String databaseDir,
 }) => RustLib.instance.api.crateApiCashuCreateMintQuote(
   mintUrl: mintUrl,
   unit: unit,
   amount: amount,
-  databaseDir: databaseDir,
 );
 
 /// Check mint quote status
-String checkMintQuoteStatus({
+Future<String> checkMintQuoteStatus({
   required String mintUrl,
   required String unit,
   required String quoteId,
-  required String databaseDir,
 }) => RustLib.instance.api.crateApiCashuCheckMintQuoteStatus(
   mintUrl: mintUrl,
   unit: unit,
   quoteId: quoteId,
-  databaseDir: databaseDir,
 );
 
 /// Mint tokens from quote
-BigInt mintFromQuote({
+Future<BigInt> mintFromQuote({
   required String mintUrl,
   required String unit,
   required String quoteId,
-  required String databaseDir,
 }) => RustLib.instance.api.crateApiCashuMintFromQuote(
   mintUrl: mintUrl,
   unit: unit,
   quoteId: quoteId,
-  databaseDir: databaseDir,
 );
 
 /// Get wallet proofs
-List<CashuProof> getWalletProofs({
+Future<List<CashuProof>> getWalletProofs({
   required String mintUrl,
   required String unit,
-  required String databaseDir,
 }) => RustLib.instance.api.crateApiCashuGetWalletProofs(
   mintUrl: mintUrl,
   unit: unit,
-  databaseDir: databaseDir,
-);
-
-/// Get wallet transactions
-List<TransactionInfo> getWalletTransactions({
-  required String mintUrl,
-  required String unit,
-  required String databaseDir,
-}) => RustLib.instance.api.crateApiCashuGetWalletTransactions(
-  mintUrl: mintUrl,
-  unit: unit,
-  databaseDir: databaseDir,
 );
 
 /// Create a new Cashu proof (helper function)
-CashuProof createCashuProof({
+Future<CashuProof> createCashuProof({
   required String id,
   required BigInt amount,
   required String secret,
@@ -189,66 +153,62 @@ CashuProof createCashuProof({
 );
 
 /// Parse Cashu token string
-Map<String, String> parseCashuToken({required String token}) =>
+Future<Map<String, String>> parseCashuToken({required String token}) =>
     RustLib.instance.api.crateApiCashuParseCashuToken(token: token);
 
 /// Validate Cashu proof
-bool validateCashuProof({required CashuProof proof}) =>
+Future<bool> validateCashuProof({required CashuProof proof}) =>
     RustLib.instance.api.crateApiCashuValidateCashuProof(proof: proof);
 
 /// Generate a new BIP39 mnemonic phrase (12 or 24 words)
-String generateMnemonicPhrase({required int wordCount}) => RustLib.instance.api
+Future<String> generateMnemonicPhrase({required int wordCount}) => RustLib
+    .instance
+    .api
     .crateApiCashuGenerateMnemonicPhrase(wordCount: wordCount);
 
 /// Convert mnemonic phrase to seed hex (64 hex characters)
-String mnemonicToSeedHex({required String mnemonicPhrase}) => RustLib
+Future<String> mnemonicToSeedHex({required String mnemonicPhrase}) => RustLib
     .instance
     .api
     .crateApiCashuMnemonicToSeedHex(mnemonicPhrase: mnemonicPhrase);
 
 /// Convert seed hex to mnemonic phrase (for verification/testing)
-String seedHexToMnemonic({required String seedHex}) =>
+Future<String> seedHexToMnemonic({required String seedHex}) =>
     RustLib.instance.api.crateApiCashuSeedHexToMnemonic(seedHex: seedHex);
 
 /// Validate a mnemonic phrase
-bool validateMnemonicPhrase({required String mnemonicPhrase}) => RustLib
+Future<bool> validateMnemonicPhrase({required String mnemonicPhrase}) => RustLib
     .instance
     .api
     .crateApiCashuValidateMnemonicPhrase(mnemonicPhrase: mnemonicPhrase);
 
 /// Create a lightning invoice for receiving payment
-String createLightningInvoice({
+Future<String> createLightningInvoice({
   required String mintUrl,
   required BigInt amount,
   String? memo,
-  required String databaseDir,
 }) => RustLib.instance.api.crateApiCashuCreateLightningInvoice(
   mintUrl: mintUrl,
   amount: amount,
   memo: memo,
-  databaseDir: databaseDir,
 );
 
 /// Check if a lightning invoice has been paid
-bool checkLightningInvoiceStatus({
+Future<bool> checkLightningInvoiceStatus({
   required String mintUrl,
   required String quoteId,
-  required String databaseDir,
 }) => RustLib.instance.api.crateApiCashuCheckLightningInvoiceStatus(
   mintUrl: mintUrl,
   quoteId: quoteId,
-  databaseDir: databaseDir,
 );
 
 /// Mint tokens from a paid lightning invoice
-String mintFromLightningInvoice({
+Future<String> mintFromLightningInvoice({
   required String mintUrl,
   required String quoteId,
-  required String databaseDir,
 }) => RustLib.instance.api.crateApiCashuMintFromLightningInvoice(
   mintUrl: mintUrl,
   quoteId: quoteId,
-  databaseDir: databaseDir,
 );
 
 /// Cashu proof structure for FFI

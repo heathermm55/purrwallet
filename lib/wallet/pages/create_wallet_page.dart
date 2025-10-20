@@ -36,10 +36,10 @@ class _CreateWalletPageState extends State<CreateWalletPage> {
 
     try {
       // Generate BIP39 mnemonic phrase (12 words)
-      final mnemonic = generateMnemonicPhrase(wordCount: 12);
+      final mnemonic = await generateMnemonicPhrase(wordCount: 12);
       
       // Convert mnemonic to seed hex
-      final seedHex = mnemonicToSeedHex(mnemonicPhrase: mnemonic);
+      final seedHex = await mnemonicToSeedHex(mnemonicPhrase: mnemonic);
       
       setState(() {
         _generatedMnemonic = mnemonic;
@@ -113,7 +113,7 @@ class _CreateWalletPageState extends State<CreateWalletPage> {
       final documentsDir = await getApplicationDocumentsDirectory();
       final databaseDir = documentsDir.path;
 
-      final initResult = initMultiMintWallet(databaseDir: databaseDir, seedHex: _generatedSeedHex!);
+      final initResult = await initMultiMintWallet(databaseDir: databaseDir, seedHex: _generatedSeedHex!);
       print('MultiMintWallet init result: $initResult');
 
       if (mounted) {

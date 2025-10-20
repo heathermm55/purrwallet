@@ -65,7 +65,7 @@ class _ImportWalletPageState extends State<ImportWalletPage> {
 
     try {
       // Validate mnemonic phrase first
-      final isValid = validateMnemonicPhrase(mnemonicPhrase: mnemonicPhrase);
+      final isValid = await validateMnemonicPhrase(mnemonicPhrase: mnemonicPhrase);
       if (!isValid) {
         setState(() {
           _isImporting = false;
@@ -87,7 +87,7 @@ class _ImportWalletPageState extends State<ImportWalletPage> {
       }
 
       // Convert mnemonic to seed hex
-      final seedHex = mnemonicToSeedHex(mnemonicPhrase: mnemonicPhrase);
+      final seedHex = await mnemonicToSeedHex(mnemonicPhrase: mnemonicPhrase);
       
       // Save seed hex to secure storage
       await _secureStorage.write(key: _seedKey, value: seedHex);
@@ -96,7 +96,7 @@ class _ImportWalletPageState extends State<ImportWalletPage> {
       final documentsDir = await getApplicationDocumentsDirectory();
       final databaseDir = documentsDir.path;
 
-      final initResult = initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
+      final initResult = await initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
       print('MultiMintWallet init result: $initResult');
 
       if (mounted) {

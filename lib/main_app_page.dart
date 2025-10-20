@@ -77,19 +77,11 @@ class _MainAppPageState extends State<MainAppPage> {
       print('Using seed: ${seedHex.substring(0, 8)}...');
 
       // Initialize MultiMintWallet with seed
-      final initResult = initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
+      final initResult = await initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
       print('MultiMintWallet init result: $initResult');
 
-      // Mints are now empty by default - users can add their own mints
-      // No default wallet info since no mints are configured
-      WalletInfo? walletInfo;
-      List<TransactionInfo> transactions = [];
-      
-      // Initialize with empty state since no mints are configured
-      setState(() {
-        _walletInfo = null; // No wallet info without mints
-        _transactions = []; // No transactions without mints
-      });
+      // Load wallet data if mints are available
+      await _refreshWalletData();
     } catch (e) {
       print('Wallet initialization error: $e');
     }
@@ -2387,7 +2379,6 @@ class _MainAppPageState extends State<MainAppPage> {
 
   void _showLightningReceiveDialog() {
     final amountController = TextEditingController();
-    final memoController = TextEditingController();
     
     showDialog(
       context: context,
@@ -2441,39 +2432,6 @@ class _MainAppPageState extends State<MainAppPage> {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Memo (optional):',
-                style: TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: memoController,
-                style: const TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                ),
-                decoration: const InputDecoration(
-                  hintText: 'Enter memo',
-                  hintStyle: TextStyle(
-                    color: Color(0xFF666666),
-                    fontFamily: 'Courier',
-                  ),
-                  border: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00FF00)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00FF00)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00FF00)),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
                 'This will create a lightning invoice that you can pay to receive ecash tokens.',
                 style: TextStyle(
                   color: Color(0xFF666666),
@@ -2497,7 +2455,6 @@ class _MainAppPageState extends State<MainAppPage> {
             TextButton(
               onPressed: () async {
                 final amountText = amountController.text.trim();
-                final memo = memoController.text.trim();
                 
                 if (amountText.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -2515,7 +2472,7 @@ class _MainAppPageState extends State<MainAppPage> {
                   );
                   return;
                 }
-                
+
                 final amount = int.tryParse(amountText);
                 if (amount == null || amount <= 0) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -2533,9 +2490,9 @@ class _MainAppPageState extends State<MainAppPage> {
                   );
                   return;
                 }
-                
+
                 Navigator.of(context).pop();
-                await _createLightningInvoice(amount, memo.isEmpty ? null : memo);
+                await _createLightningInvoice(amount);
               },
               child: const Text(
                 'Create Invoice',
@@ -2552,7 +2509,7 @@ class _MainAppPageState extends State<MainAppPage> {
   }
 
   /// Create a lightning invoice
-  Future<void> _createLightningInvoice(int amount, String? memo) async {
+  Future<void> _createLightningInvoice(int amount) async {
     try {
       // Show loading dialog
       showDialog(
@@ -2580,10 +2537,6 @@ class _MainAppPageState extends State<MainAppPage> {
           );
         },
       );
-
-      // Get database directory
-      final directory = await getApplicationDocumentsDirectory();
-      final databaseDir = directory.path;
 
       // Get the first mint URL (for now, we'll use the first available mint)
       final mints = await listMints();
@@ -2619,8 +2572,7 @@ class _MainAppPageState extends State<MainAppPage> {
       final invoiceResponse = await createLightningInvoice(
         mintUrl: mintUrl,
         amount: BigInt.from(amount),
-        memo: memo,
-        databaseDir: databaseDir,
+        memo: null,
       );
 
       // Parse the JSON response
@@ -2631,8 +2583,8 @@ class _MainAppPageState extends State<MainAppPage> {
 
       Navigator.of(context).pop(); // Close loading dialog
 
-      // Show invoice dialog with correct amount
-      _showInvoiceDialog(invoice, invoiceAmount, memo, quoteId);
+      // Show invoice dialog
+      _showInvoiceDialog(invoice, invoiceAmount, quoteId);
     } catch (e) {
       Navigator.of(context).pop(); // Close loading dialog
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2651,15 +2603,15 @@ class _MainAppPageState extends State<MainAppPage> {
     }
   }
 
-  /// Show lightning invoice dialog
-  void _showInvoiceDialog(String invoice, int amount, String? memo, String quoteId) {
+  /// Show lightning invoice dialog and start monitoring automatically
+  void _showInvoiceDialog(String invoice, int amount, String quoteId) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
           title: const Text(
-            'Lightning Invoice',
+            'Lightning Invoice Created',
             style: TextStyle(
               color: Color(0xFF00FF00),
               fontFamily: 'Courier',
@@ -2678,16 +2630,6 @@ class _MainAppPageState extends State<MainAppPage> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              if (memo != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Memo: $memo',
-                  style: const TextStyle(
-                    color: Color(0xFF00FF00),
-                    fontFamily: 'Courier',
-                  ),
-                ),
-              ],
               const SizedBox(height: 16),
               const Text(
                 'Invoice:',
@@ -2715,6 +2657,16 @@ class _MainAppPageState extends State<MainAppPage> {
               ),
               const SizedBox(height: 16),
               const Text(
+                'Payment monitoring will start automatically in the background.',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
                 'Share this invoice with the sender to receive payment.',
                 style: TextStyle(
                   color: Color(0xFF666666),
@@ -2726,12 +2678,15 @@ class _MainAppPageState extends State<MainAppPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
               child: const Text(
                 'Close',
                 style: TextStyle(
                   color: Color(0xFF00FF00),
                   fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
@@ -2739,6 +2694,13 @@ class _MainAppPageState extends State<MainAppPage> {
         );
       },
     );
+    
+    // Auto-start monitoring silently after a short delay
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        _startPaymentStatusCheck(quoteId, amount);
+      }
+    });
   }
 
   void _showScanDialog() {
@@ -3774,44 +3736,9 @@ class _MainAppPageState extends State<MainAppPage> {
     );
   }
 
-  /// Start monitoring payment status for a lightning invoice
+  /// Start monitoring payment status for a lightning invoice (silent)
   void _startPaymentStatusCheck(String quoteId, int amount) {
-    // Show monitoring dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
-          title: const Text(
-            'Monitoring Payment',
-            style: TextStyle(
-              color: Color(0xFF00FF00),
-              fontFamily: 'Courier',
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF00)),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Waiting for payment of $amount sats...',
-                style: const TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    // Start periodic payment checking
+    // Start periodic payment checking silently
     _checkPaymentStatusPeriodically(quoteId, amount);
   }
 
@@ -3825,9 +3752,6 @@ class _MainAppPageState extends State<MainAppPage> {
       
       try {
         // Get database directory
-        final directory = await getApplicationDocumentsDirectory();
-        final databaseDir = directory.path;
-
         // Get the first mint URL
         final mints = await listMints();
         if (mints.isEmpty) {
@@ -3843,17 +3767,16 @@ class _MainAppPageState extends State<MainAppPage> {
             : mintString;
 
         // Check payment status
+        print('Dart: Calling checkLightningInvoiceStatus with quoteId: $quoteId');
         final isPaid = await checkLightningInvoiceStatus(
           mintUrl: mintUrl,
           quoteId: quoteId,
-          databaseDir: databaseDir,
         );
+        print('Dart: Payment status result: $isPaid');
 
         if (isPaid) {
           // Payment received! Mint the tokens
-          Navigator.of(context).pop(); // Close monitoring dialog
-          
-          await _mintTokensFromInvoice(mintUrl, quoteId, databaseDir, amount);
+          await _mintTokensFromInvoice(mintUrl, quoteId, amount);
           return;
         }
         
@@ -3868,12 +3791,11 @@ class _MainAppPageState extends State<MainAppPage> {
     }
     
     // Timeout reached
-    Navigator.of(context).pop(); // Close monitoring dialog
     _showPaymentError('Payment timeout - please try again');
   }
 
   /// Mint tokens from a paid lightning invoice
-  Future<void> _mintTokensFromInvoice(String mintUrl, String quoteId, String databaseDir, int amount) async {
+  Future<void> _mintTokensFromInvoice(String mintUrl, String quoteId, int amount) async {
     try {
       // Show minting dialog
       showDialog(
@@ -3903,11 +3825,20 @@ class _MainAppPageState extends State<MainAppPage> {
       );
 
       // Mint tokens from the paid invoice
-      final result = await mintFromLightningInvoice(
-        mintUrl: mintUrl,
-        quoteId: quoteId,
-        databaseDir: databaseDir,
-      );
+      print('Dart: Calling mintFromLightningInvoice with quoteId: $quoteId');
+      String? mintingResult;
+      try {
+        mintingResult = await mintFromLightningInvoice(
+          mintUrl: mintUrl,
+          quoteId: quoteId,
+        );
+        print('Dart: Minting result: $mintingResult');
+      } catch (e) {
+        print('Dart: Minting error: $e');
+        Navigator.of(context).pop(); // Close minting dialog
+        _showPaymentError('Failed to mint tokens: $e');
+        return;
+      }
 
       Navigator.of(context).pop(); // Close minting dialog
 
@@ -3915,7 +3846,7 @@ class _MainAppPageState extends State<MainAppPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Payment received! $result',
+            'Payment received! $mintingResult',
             style: const TextStyle(
               color: Color(0xFF00FF00),
               fontFamily: 'Courier',
@@ -3926,12 +3857,48 @@ class _MainAppPageState extends State<MainAppPage> {
         ),
       );
 
-      // Refresh wallet balance
-      setState(() {});
+      // Refresh wallet balance and transactions
+      await _refreshWalletData();
 
     } catch (e) {
       Navigator.of(context).pop(); // Close minting dialog
       _showPaymentError('Failed to mint tokens: $e');
+    }
+  }
+
+  /// Refresh wallet data after minting
+  Future<void> _refreshWalletData() async {
+    try {
+      // Use new bulk methods to get all data at once
+      final allBalances = await getAllBalances();
+      final allTransactions = await getAllTransactions();
+      
+      // Calculate total balance from all mints
+      BigInt totalBalance = BigInt.zero;
+      for (final balance in allBalances.values) {
+        totalBalance += balance;
+      }
+      
+      // Sort transactions by timestamp (newest first)
+      allTransactions.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      
+      // Create aggregated wallet info
+      final aggregatedWalletInfo = WalletInfo(
+        mintUrl: 'Multiple Mints',
+        unit: 'sat',
+        balance: totalBalance,
+        activeKeysetId: 'aggregated',
+      );
+      
+      // Update UI
+      setState(() {
+        _walletInfo = aggregatedWalletInfo;
+        _transactions = allTransactions;
+      });
+      
+      print('Wallet data refreshed - Total Balance: ${totalBalance}, Total Transactions: ${allTransactions.length}');
+    } catch (e) {
+      print('Failed to refresh wallet data: $e');
     }
   }
 

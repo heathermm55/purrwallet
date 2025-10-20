@@ -2509,6 +2509,7 @@ dependencies = [
  "cdk-sqlite",
  "flutter_rust_bridge",
  "hex",
+ "log",
  "nostr",
  "rand 0.8.5",
  "serde",

@@ -23,6 +23,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Map<String, String> dco_decode_Map_String_String(dynamic raw);
 
   @protected
+  Map<String, BigInt> dco_decode_Map_String_u_64(dynamic raw);
+
+  @protected
   String dco_decode_String(dynamic raw);
 
   @protected
@@ -59,6 +62,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<(String, String)> dco_decode_list_record_string_string(dynamic raw);
 
   @protected
+  List<(String, BigInt)> dco_decode_list_record_string_u_64(dynamic raw);
+
+  @protected
   List<TransactionInfo> dco_decode_list_transaction_info(dynamic raw);
 
   @protected
@@ -86,6 +92,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   (String, String) dco_decode_record_string_string(dynamic raw);
 
   @protected
+  (String, BigInt) dco_decode_record_string_u_64(dynamic raw);
+
+  @protected
   TransactionInfo dco_decode_transaction_info(dynamic raw);
 
   @protected
@@ -107,6 +116,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Map<String, String> sse_decode_Map_String_String(
     SseDeserializer deserializer,
   );
+
+  @protected
+  Map<String, BigInt> sse_decode_Map_String_u_64(SseDeserializer deserializer);
 
   @protected
   String sse_decode_String(SseDeserializer deserializer);
@@ -147,6 +159,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<(String, BigInt)> sse_decode_list_record_string_u_64(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<TransactionInfo> sse_decode_list_transaction_info(
     SseDeserializer deserializer,
   );
@@ -182,6 +199,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  (String, BigInt) sse_decode_record_string_u_64(SseDeserializer deserializer);
+
+  @protected
   TransactionInfo sse_decode_transaction_info(SseDeserializer deserializer);
 
   @protected
@@ -205,6 +225,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_Map_String_String(
     Map<String, String> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_Map_String_u_64(
+    Map<String, BigInt> self,
     SseSerializer serializer,
   );
 
@@ -266,6 +292,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_record_string_u_64(
+    List<(String, BigInt)> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_transaction_info(
     List<TransactionInfo> self,
     SseSerializer serializer,
@@ -301,6 +333,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_record_string_string(
     (String, String) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_record_string_u_64(
+    (String, BigInt) self,
     SseSerializer serializer,
   );
 

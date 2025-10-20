@@ -451,10 +451,9 @@ class _MintInfoPageState extends State<MintInfoPage> {
 
     try {
       // Fetch mint info using Rust API (NUT-06)
-      final mintInfoData = getMintInfo(
+      final mintInfoData = await getMintInfo(
         mintUrl: widget.mintUrl,
         unit: widget.unit,
-        databaseDir: '/tmp', // Use temporary directory for mint info
       );
       
       setState(() {
