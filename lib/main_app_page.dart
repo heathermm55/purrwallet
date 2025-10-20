@@ -3395,18 +3395,85 @@ class _MainAppPageState extends State<MainAppPage> {
     );
   }
 
-  void _showEcashSendDialog() {
+  Future<void> _showEcashSendDialog() async {
+    // Load available mints first
+    List<String> mints = [];
+    try {
+      mints = await listMints();
+    } catch (e) {
+      print('Error loading mints: $e');
+    }
+    
+    if (mints.isEmpty) {
+      // Show alert to add mint first
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1A1A1A),
+            title: const Text(
+              'No Mint Available',
+              style: TextStyle(
+                color: Color(0xFF00FF00),
+                fontFamily: 'Courier',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            content: const Text(
+              'Please add a mint first before sending ecash.',
+              style: TextStyle(
+                color: Color(0xFF666666),
+                fontFamily: 'Courier',
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _showAddMintDialog();
+                },
+                child: const Text(
+                  'Add Mint',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
+    
+    // Parse mint URLs to display format
+    final parsedMints = mints.map((mint) {
+      final parts = mint.split(':');
+      if (parts.length >= 2) {
+        return parts.sublist(0, parts.length - 1).join(':');
+      }
+      return mint;
+    }).toList();
+    
     final TextEditingController amountController = TextEditingController();
     final TextEditingController memoController = TextEditingController();
-    String selectedMint = '';
-    String selectedMintAlias = 'No Mint Selected';
-    bool isP2PKEnabled = false;
-    String? p2pkPubkey;
-    String? p2pkSigFlags;
-    String? p2pkNSig;
-    String? p2pkLockTime;
-    String? p2pkRefund;
+    String selectedMint = parsedMints[0]; // Default to first mint
+    String selectedMintFull = mints[0]; // Keep full mint URL for API call
     
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -3427,9 +3494,9 @@ class _MainAppPageState extends State<MainAppPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Selected Mint
+                    // Mint Selection Dropdown
                     const Text(
-                      'Selected Mint:',
+                      'Select Mint:',
                       style: TextStyle(
                         color: Color(0xFF00FF00),
                         fontFamily: 'Courier',
@@ -3437,59 +3504,55 @@ class _MainAppPageState extends State<MainAppPage> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        _showMintSelectionDialog((mintUrl, alias) {
-                          selectedMint = mintUrl;
-                          selectedMintAlias = alias;
-                          _showEcashSendDialog();
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2A2A2A),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Color(0xFF00FF00)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2A2A2A),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF00FF00)),
+                      ),
+                      child: DropdownButton<String>(
+                        value: selectedMint,
+                        isExpanded: true,
+                        dropdownColor: const Color(0xFF2A2A2A),
+                        underline: const SizedBox(),
+                        style: const TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                          fontSize: 12,
                         ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.star, color: Color(0xFF00FF00), size: 16),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    selectedMintAlias,
-                                    style: const TextStyle(
-                                      color: Color(0xFF00FF00),
-                                      fontFamily: 'Courier',
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  Text(
-                                    selectedMint,
-                                    style: const TextStyle(
-                                      color: Color(0xFF666666),
-                                      fontFamily: 'Courier',
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ],
+                        items: List.generate(parsedMints.length, (index) {
+                          final displayText = parsedMints[index];
+                          return DropdownMenuItem<String>(
+                            value: displayText,
+                            child: Text(
+                              index == 0 ? 'Default Mint' : displayText,
+                              style: const TextStyle(
+                                color: Color(0xFF00FF00),
+                                fontFamily: 'Courier',
                               ),
                             ),
-                            const Icon(Icons.arrow_forward_ios, color: Color(0xFF666666), size: 12),
-                          ],
-                        ),
+                          );
+                        }),
+                        onChanged: (String? newValue) {
+                          if (newValue != null) {
+                            setState(() {
+                              selectedMint = newValue;
+                              // Find the corresponding full mint URL
+                              final index = parsedMints.indexOf(newValue);
+                              if (index >= 0 && index < mints.length) {
+                                selectedMintFull = mints[index];
+                              }
+                            });
+                          }
+                        },
                       ),
                     ),
                     const SizedBox(height: 16),
                     
                     // Amount
                     const Text(
-                      'Sats Amount:',
+                      'Amount (sats):',
                       style: TextStyle(
                         color: Color(0xFF00FF00),
                         fontFamily: 'Courier',
@@ -3524,9 +3587,9 @@ class _MainAppPageState extends State<MainAppPage> {
                     ),
                     const SizedBox(height: 16),
                     
-                    // Description
+                    // Memo (optional)
                     const Text(
-                      'Description:',
+                      'Memo (optional):',
                       style: TextStyle(
                         color: Color(0xFF00FF00),
                         fontFamily: 'Courier',
@@ -3541,7 +3604,7 @@ class _MainAppPageState extends State<MainAppPage> {
                         fontFamily: 'Courier',
                       ),
                       decoration: const InputDecoration(
-                        hintText: 'This is Description',
+                        hintText: 'Add a note',
                         hintStyle: TextStyle(
                           color: Color(0xFF666666),
                           fontFamily: 'Courier',
@@ -3557,44 +3620,17 @@ class _MainAppPageState extends State<MainAppPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
                     
-                    // P2PK Options
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: isP2PKEnabled,
-                          onChanged: (value) {
-                            setState(() {
-                              isP2PKEnabled = value ?? false;
-                            });
-                          },
-                          activeColor: const Color(0xFF00FF00),
-                          checkColor: Colors.black,
-                        ),
-                        const Text(
-                          'P2PK',
-                          style: TextStyle(
-                            color: Color(0xFF00FF00),
-                            fontFamily: 'Courier',
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    if (isP2PKEnabled) ...[
-                      const SizedBox(height: 8),
-                      _buildP2PKOption('Pubkey', p2pkPubkey, (value) => p2pkPubkey = value),
-                      const SizedBox(height: 8),
-                      _buildP2PKOption('SigFlags', p2pkSigFlags, (value) => p2pkSigFlags = value),
-                      const SizedBox(height: 8),
-                      _buildP2PKOption('N_sig', p2pkNSig, (value) => p2pkNSig = value),
-                      const SizedBox(height: 8),
-                      _buildP2PKOption('LockTime', p2pkLockTime, (value) => p2pkLockTime = value),
-                      const SizedBox(height: 8),
-                      _buildP2PKOption('Refund', p2pkRefund, (value) => p2pkRefund = value),
-                    ],
+                    // P2PK section - hidden for now (will be implemented later)
+                    // const SizedBox(height: 16),
+                    // const Text(
+                    //   'P2PK options coming soon',
+                    //   style: TextStyle(
+                    //     color: Color(0xFF666666),
+                    //     fontFamily: 'Courier',
+                    //     fontSize: 10,
+                    //   ),
+                    // ),
                   ],
                 ),
               ),
@@ -3615,20 +3651,15 @@ class _MainAppPageState extends State<MainAppPage> {
                     _createEcashToken(
                       amountController.text,
                       memoController.text,
-                      selectedMint,
-                      isP2PKEnabled,
-                      p2pkPubkey,
-                      p2pkSigFlags,
-                      p2pkNSig,
-                      p2pkLockTime,
-                      p2pkRefund,
+                      selectedMintFull,
                     );
                   },
                   child: const Text(
-                    'Continue',
+                    'Create Token',
                     style: TextStyle(
                       color: Color(0xFF00FF00),
                       fontFamily: 'Courier',
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -3640,217 +3671,7 @@ class _MainAppPageState extends State<MainAppPage> {
     );
   }
 
-  Widget _buildP2PKOption(String label, String? value, Function(String?) onChanged) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(context).pop();
-        _showP2PKOptionDialog(label, value ?? 'None', onChanged);
-      },
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF2A2A2A),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Color(0xFF00FF00)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                  fontSize: 12,
-                ),
-              ),
-            ),
-            Text(
-              value ?? 'None',
-              style: const TextStyle(
-                color: Color(0xFF666666),
-                fontFamily: 'Courier',
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.arrow_forward_ios, color: Color(0xFF666666), size: 12),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showMintSelectionDialog(Function(String, String) onMintSelected) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
-          title: const Text(
-            'Select Mint',
-            style: TextStyle(
-              color: Color(0xFF00FF00),
-              fontFamily: 'Courier',
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.account_balance_wallet, color: Color(0xFF00FF00)),
-                title: const Text(
-                  'Local Mint',
-                  style: TextStyle(
-                    color: Color(0xFF00FF00),
-                    fontFamily: 'Courier',
-                  ),
-                ),
-                subtitle: const Text(
-                  'No default mint available',
-                  style: TextStyle(
-                    color: Color(0xFF666666),
-                    fontFamily: 'Courier',
-                    fontSize: 10,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  // No default mint to select
-                },
-              ),
-              const Divider(color: Color(0xFF333333)),
-              ListTile(
-                leading: const Icon(Icons.add, color: Color(0xFF00FF00)),
-                title: const Text(
-                  'Add New Mint',
-                  style: TextStyle(
-                    color: Color(0xFF00FF00),
-                    fontFamily: 'Courier',
-                  ),
-                ),
-                subtitle: const Text(
-                  'Add a custom mint server',
-                  style: TextStyle(
-                    color: Color(0xFF666666),
-                    fontFamily: 'Courier',
-                    fontSize: 10,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  // TODO: Show add mint dialog
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Add mint functionality coming soon',
-                        style: TextStyle(
-                          color: Color(0xFF00FF00),
-                          fontFamily: 'Courier',
-                        ),
-                      ),
-                      backgroundColor: Color(0xFF1A1A1A),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showP2PKOptionDialog(String label, String currentValue, Function(String?) onChanged) {
-    final TextEditingController controller = TextEditingController(text: currentValue == 'None' ? '' : currentValue);
-    
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
-          title: Text(
-            'Set $label',
-            style: const TextStyle(
-              color: Color(0xFF00FF00),
-              fontFamily: 'Courier',
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: controller,
-                style: const TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Enter $label value',
-                  hintStyle: const TextStyle(
-                    color: Color(0xFF666666),
-                    fontFamily: 'Courier',
-                  ),
-                  border: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00FF00)),
-                  ),
-                  enabledBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00FF00)),
-                  ),
-                  focusedBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00FF00)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                onChanged(null);
-              },
-              child: const Text(
-                'Clear',
-                style: TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                onChanged(controller.text.isEmpty ? null : controller.text);
-              },
-              child: const Text(
-                'Set',
-                style: TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  // P2PK related functions removed - will be implemented later
 
   void _showLightningSendDialog() {
     final TextEditingController invoiceController = TextEditingController();
@@ -3985,17 +3806,12 @@ class _MainAppPageState extends State<MainAppPage> {
     );
   }
 
-  void _createEcashToken(
+  Future<void> _createEcashToken(
     String amount,
     String memo,
     String mintUrl,
-    bool isP2PKEnabled,
-    String? p2pkPubkey,
-    String? p2pkSigFlags,
-    String? p2pkNSig,
-    String? p2pkLockTime,
-    String? p2pkRefund,
-  ) {
+  ) async {
+    // Validate amount
     if (amount.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -4012,17 +3828,47 @@ class _MainAppPageState extends State<MainAppPage> {
       );
       return;
     }
-
-    // TODO: Create ecash token using Rust API
-    print('Creating ecash token: $amount sats, memo: $memo, mint: $mintUrl');
-    if (isP2PKEnabled) {
-      print('P2PK enabled: pubkey=$p2pkPubkey, sigFlags=$p2pkSigFlags, nSig=$p2pkNSig, lockTime=$p2pkLockTime, refund=$p2pkRefund');
+    
+    final int parsedAmount = int.tryParse(amount) ?? 0;
+    if (parsedAmount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please enter a valid amount',
+            style: TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: Color(0xFF1A1A1A),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
     }
     
+    if (mintUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please select a mint',
+            style: TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: Color(0xFF1A1A1A),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // Show loading message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Creating ecash token for $amount sats from $mintUrl...',
+          'Creating ecash token for $amount sats...',
           style: const TextStyle(
             color: Color(0xFF00FF00),
             fontFamily: 'Courier',
@@ -4032,8 +3878,196 @@ class _MainAppPageState extends State<MainAppPage> {
         duration: const Duration(seconds: 2),
       ),
     );
+    
+    try {
+      // Parse mint URL to remove unit suffix (e.g., "http://127.0.0.1:3338:sat" -> "http://127.0.0.1:3338")
+      String parsedMintUrl = mintUrl;
+      final parts = mintUrl.split(':');
+      if (parts.length >= 2) {
+        parsedMintUrl = parts.sublist(0, parts.length - 1).join(':');
+      }
+      
+      print('Creating ecash token from mint: $parsedMintUrl (original: $mintUrl)');
+      
+      // Call sendTokens API
+      final token = await sendTokens(
+        mintUrl: parsedMintUrl,
+        amount: BigInt.from(parsedAmount),
+        memo: memo.isNotEmpty ? memo : null,
+      );
+      
+      print('Ecash token created: $token');
+      
+      // Show success dialog with token
+      if (!mounted) return;
+      _showEcashTokenDialog(token, parsedAmount);
+      
+      // Refresh wallet data
+      _refreshWalletData();
+    } catch (e) {
+      print('Error creating ecash token: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to create token: $e',
+            style: const TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: const Color(0xFF1A1A1A),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
+  /// Show ecash token dialog after successful creation
+  void _showEcashTokenDialog(String token, int amount) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Ecash Token Created',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: SizedBox(
+            width: 300,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Amount
+                  Center(
+                    child: Text(
+                      '$amount sats',
+                      style: const TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // QR Code
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A1A1A),
+                        border: Border.all(color: const Color(0xFF00FF00), width: 2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: QrImageView(
+                        data: token.toUpperCase(),
+                        version: QrVersions.auto,
+                        size: 200.0,
+                        backgroundColor: const Color(0xFF1A1A1A),
+                        foregroundColor: const Color(0xFF00FF00),
+                        errorCorrectionLevel: QrErrorCorrectLevel.H,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Token text (clickable to copy)
+                  const Text(
+                    'Token:',
+                    style: TextStyle(
+                      color: Color(0xFF666666),
+                      fontFamily: 'Courier',
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: token));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Token copied to clipboard',
+                            style: TextStyle(
+                              color: Color(0xFF00FF00),
+                              fontFamily: 'Courier',
+                            ),
+                          ),
+                          backgroundColor: Color(0xFF1A1A1A),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2A2A2A),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF00FF00)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              token,
+                              style: const TextStyle(
+                                color: Color(0xFF00FF00),
+                                fontFamily: 'Courier',
+                                fontSize: 10,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.copy,
+                            color: Color(0xFF00FF00),
+                            size: 16,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Share this token to send ecash.',
+                    style: TextStyle(
+                      color: Color(0xFF666666),
+                      fontFamily: 'Courier',
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Done',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
  
   /// Show payment success message
   void _showPaymentSuccess(int mintedAmount) {
