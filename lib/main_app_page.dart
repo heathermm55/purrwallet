@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:rust_plugin/src/rust/api/cashu.dart';
 import 'package:rust_plugin/src/rust/api/nostr.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'accounts/services/auth_service.dart';
@@ -893,7 +895,7 @@ class _MainAppPageState extends State<MainAppPage> {
                 ),
                 TextButton(
                   onPressed: () {
-                    final url = urlController.text.trim();
+                    var url = urlController.text.trim();
                     final alias = aliasController.text.trim();
                     
                     if (url.isEmpty) {
@@ -908,6 +910,12 @@ class _MainAppPageState extends State<MainAppPage> {
                         urlError = 'Invalid URL format';
                       });
                       return;
+                    }
+                    
+                    // Add https:// if no protocol specified
+                    if (!url.toLowerCase().startsWith('http://') && 
+                        !url.toLowerCase().startsWith('https://')) {
+                      url = 'https://$url';
                     }
                     
                     // Add the mint
@@ -932,9 +940,29 @@ class _MainAppPageState extends State<MainAppPage> {
 
   void _addMint(String mintUrl, String alias) async {
     try {
-      // Add the mint using the Rust API
-      final result = addMint(mintUrl: mintUrl);
+      // Show loading indicator
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Adding mint...',
+              style: TextStyle(
+                color: Color(0xFF00FF00),
+                fontFamily: 'Courier',
+              ),
+            ),
+            backgroundColor: Color(0xFF1A1A1A),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
+      
+      // Add the mint using the Rust API (with await!)
+      final result = await addMint(mintUrl: mintUrl);
       print('Add mint result: $result');
+      
+      // Refresh wallet data after adding mint
+      await _refreshWalletData();
       
       // Show success message
       if (mounted) {
@@ -2430,139 +2458,291 @@ class _MainAppPageState extends State<MainAppPage> {
     );
   }
 
-  void _showLightningReceiveDialog() {
+  void _showLightningReceiveDialog() async {
+    // Check if there are any mints available first
+    final mints = await listMints();
+    if (mints.isEmpty) {
+      // Show dialog to prompt user to add a mint
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1A1A1A),
+            title: const Text(
+              'No Mints Available',
+              style: TextStyle(
+                color: Color(0xFF00FF00),
+                fontFamily: 'Courier',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'You need to add a mint first before you can receive via lightning.',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                    fontSize: 12,
+                  ),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Would you like to add a mint now?',
+                  style: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _showAddMintDialog();
+                },
+                child: const Text(
+                  'Add Mint',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
+    
+    // If mints are available, show the lightning receive dialog
     final amountController = TextEditingController();
+    
+    // Parse mint strings to get display names
+    final mintList = mints.map((mint) {
+      // Format: "mint_url:unit"
+      final lastColonIndex = mint.lastIndexOf(':');
+      if (lastColonIndex != -1) {
+        return mint.substring(0, lastColonIndex);
+      }
+      return mint;
+    }).toList();
+    
+    // Default selected mint (first one)
+    String selectedMint = mintList.first;
     
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
-          title: const Text(
-            'Receive via Lightning',
-            style: TextStyle(
-              color: Color(0xFF00FF00),
-              fontFamily: 'Courier',
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Enter amount to receive:',
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1A1A1A),
+              title: const Text(
+                'Receive via Lightning',
                 style: TextStyle(
                   color: Color(0xFF00FF00),
                   fontFamily: 'Courier',
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: amountController,
-                style: const TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                ),
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  hintText: 'Enter amount in sats',
-                  hintStyle: TextStyle(
-                    color: Color(0xFF666666),
-                    fontFamily: 'Courier',
-                  ),
-                  border: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00FF00)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00FF00)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00FF00)),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'This will create a lightning invoice that you can pay to receive ecash tokens.',
-                style: TextStyle(
-                  color: Color(0xFF666666),
-                  fontFamily: 'Courier',
-                  fontSize: 10,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () async {
-                final amountText = amountController.text.trim();
-                
-                if (amountText.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Please enter an amount',
-                        style: TextStyle(
-                          color: Color(0xFFFF6B6B),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Select Mint:',
+                      style: TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: const Color(0xFF00FF00)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: DropdownButton<String>(
+                        value: selectedMint,
+                        isExpanded: true,
+                        underline: const SizedBox(),
+                        dropdownColor: const Color(0xFF1A1A1A),
+                        style: const TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                          fontSize: 12,
+                        ),
+                        icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF00FF00)),
+                        hint: const Text(
+                          'Default Mint',
+                          style: TextStyle(
+                            color: Color(0xFF666666),
+                            fontFamily: 'Courier',
+                          ),
+                        ),
+                        items: mintList.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final mint = entry.value;
+                          final displayName = index == 0 ? 'Default Mint ($mint)' : mint;
+                          return DropdownMenuItem<String>(
+                            value: mint,
+                            child: Text(
+                              displayName,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFF00FF00),
+                                fontFamily: 'Courier',
+                                fontSize: 11,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          if (newValue != null) {
+                            setState(() {
+                              selectedMint = newValue;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Enter amount to receive:',
+                      style: TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: amountController,
+                      style: const TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                      ),
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        hintText: 'Enter amount in sats',
+                        hintStyle: TextStyle(
+                          color: Color(0xFF666666),
                           fontFamily: 'Courier',
                         ),
-                      ),
-                      backgroundColor: Color(0xFF1A1A1A),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                  return;
-                }
-
-                final amount = int.tryParse(amountText);
-                if (amount == null || amount <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Please enter a valid amount',
-                        style: TextStyle(
-                          color: Color(0xFFFF6B6B),
-                          fontFamily: 'Courier',
+                        border: OutlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF00FF00)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF00FF00)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF00FF00)),
                         ),
                       ),
-                      backgroundColor: Color(0xFF1A1A1A),
-                      duration: Duration(seconds: 2),
                     ),
-                  );
-                  return;
-                }
-
-                Navigator.of(context).pop();
-                await _createLightningInvoice(amount);
-              },
-              child: const Text(
-                'Create Invoice',
-                style: TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
+                    const SizedBox(height: 12),
+                    const Text(
+                      'This will create a lightning invoice that you can pay to receive ecash tokens.',
+                      style: TextStyle(
+                        color: Color(0xFF666666),
+                        fontFamily: 'Courier',
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: Color(0xFF00FF00),
+                      fontFamily: 'Courier',
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    final amountText = amountController.text.trim();
+                    
+                    if (amountText.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Please enter an amount',
+                            style: TextStyle(
+                              color: Color(0xFFFF6B6B),
+                              fontFamily: 'Courier',
+                            ),
+                          ),
+                          backgroundColor: Color(0xFF1A1A1A),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                      return;
+                    }
+
+                    final amount = int.tryParse(amountText);
+                    if (amount == null || amount <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Please enter a valid amount',
+                            style: TextStyle(
+                              color: Color(0xFFFF6B6B),
+                              fontFamily: 'Courier',
+                            ),
+                          ),
+                          backgroundColor: Color(0xFF1A1A1A),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                      return;
+                    }
+
+                    Navigator.of(context).pop();
+                    await _createLightningInvoice(amount, mintUrl: selectedMint);
+                  },
+                  child: const Text(
+                    'Create Invoice',
+                    style: TextStyle(
+                      color: Color(0xFF00FF00),
+                      fontFamily: 'Courier',
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
 
   /// Create a lightning invoice using new simplified API
-  Future<void> _createLightningInvoice(int amount) async {
+  Future<void> _createLightningInvoice(int amount, {String? mintUrl}) async {
     try {
       // Show loading dialog
       showDialog(
@@ -2591,41 +2771,43 @@ class _MainAppPageState extends State<MainAppPage> {
         },
       );
 
-      // Get the first mint URL (for now, we'll use the first available mint)
-      final mints = await listMints();
-      if (mints.isEmpty) {
-        Navigator.of(context).pop(); // Close loading dialog
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'No mints available. Please add a mint first.',
-              style: TextStyle(
-                color: Color(0xFFFF6B6B),
-                fontFamily: 'Courier',
-              ),
-            ),
-            backgroundColor: Color(0xFF1A1A1A),
-            duration: Duration(seconds: 3),
-          ),
-        );
-        return;
-      }
-
-      // Use the first mint
-      // Extract mint URL from format "mint_url:unit" (e.g., "http://127.0.0.1:3338:sat")
-      final mintString = mints.first;
-      final lastColonIndex = mintString.lastIndexOf(':');
-      final mintUrl = lastColonIndex != -1 
-          ? mintString.substring(0, lastColonIndex)
-          : mintString;
+      // Use provided mint URL or get the first available mint
+      String? selectedMintUrl = mintUrl;
       
-      print('Creating lightning invoice for mint: $mintUrl');
+      if (selectedMintUrl == null) {
+        final mints = await listMints();
+        if (mints.isEmpty) {
+          Navigator.of(context).pop(); // Close loading dialog
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'No mints available. Please add a mint first.',
+                style: TextStyle(
+                  color: Color(0xFFFF6B6B),
+                  fontFamily: 'Courier',
+                ),
+              ),
+              backgroundColor: Color(0xFF1A1A1A),
+              duration: Duration(seconds: 3),
+            ),
+          );
+          return;
+        }
+
+        // Extract mint URL from format "mint_url:unit" (e.g., "http://127.0.0.1:3338:sat")
+        final mintString = mints.first;
+        final lastColonIndex = mintString.lastIndexOf(':');
+        selectedMintUrl = lastColonIndex != -1 
+            ? mintString.substring(0, lastColonIndex)
+            : mintString;
+      }
+      
+      print('Creating lightning invoice for mint: $selectedMintUrl');
 
       // Create mint quote using new simplified API
       final quote = await createMintQuote(
-        mintUrl: mintUrl,
+        mintUrl: selectedMintUrl,
         amount: BigInt.from(amount),
-        description: "Receive payment",
       );
 
       final invoice = quote['request']!;
@@ -2634,10 +2816,10 @@ class _MainAppPageState extends State<MainAppPage> {
       Navigator.of(context).pop(); // Close loading dialog
 
       // Start specific monitoring for this mint URL
-      WalletService.startMintQuoteMonitoring([mintUrl]);
+      WalletService.startMintQuoteMonitoring([selectedMintUrl]);
 
       // Show invoice dialog
-      _showInvoiceDialog(invoice, invoiceAmount, mintUrl);
+      _showInvoiceDialog(invoice, invoiceAmount, selectedMintUrl);
     } catch (e) {
       Navigator.of(context).pop(); // Close loading dialog
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2671,54 +2853,100 @@ class _MainAppPageState extends State<MainAppPage> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Amount: $amount sats',
-                style: const TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Invoice:',
-                style: TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFF00FF00)),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: SelectableText(
-                  invoice,
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Amount: $amount sats',
                   style: const TextStyle(
                     color: Color(0xFF00FF00),
                     fontFamily: 'Courier',
-                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // QR Code display
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A1A1A),
+                      border: Border.all(color: const Color(0xFF00FF00), width: 2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: QrImageView(
+                      data: invoice.toUpperCase(),
+                      version: QrVersions.auto,
+                      size: 200.0,
+                      backgroundColor: const Color(0xFF1A1A1A),
+                      foregroundColor: const Color(0xFF00FF00),
+                      errorCorrectionLevel: QrErrorCorrectLevel.H,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Invoice:',
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              InkWell(
+                onTap: () async {
+                  await Clipboard.setData(ClipboardData(text: invoice));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Invoice copied to clipboard!',
+                          style: TextStyle(
+                            color: Color(0xFF00FF00),
+                            fontFamily: 'Courier',
+                          ),
+                        ),
+                        backgroundColor: Color(0xFF1A1A1A),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFF00FF00)),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          invoice,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF00FF00),
+                            fontFamily: 'Courier',
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.copy,
+                        color: Color(0xFF00FF00),
+                        size: 16,
+                      ),
+                    ],
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Payment monitoring will start automatically in the background.',
-                style: TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
               const Text(
                 'Share this invoice with the sender to receive payment.',
                 style: TextStyle(
@@ -2727,7 +2955,8 @@ class _MainAppPageState extends State<MainAppPage> {
                   fontSize: 10,
                 ),
               ),
-            ],
+              ],
+            ),
           ),
           actions: [
             TextButton(
