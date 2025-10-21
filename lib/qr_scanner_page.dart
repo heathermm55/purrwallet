@@ -12,6 +12,8 @@ class QRScannerPage extends StatefulWidget {
 class _QRScannerPageState extends State<QRScannerPage> {
   final MobileScannerController _controller = MobileScannerController();
   bool _isProcessing = false;
+  bool _isTorchOn = false;
+  bool _isFrontCamera = false;
 
   @override
   void dispose() {
@@ -58,18 +60,23 @@ class _QRScannerPageState extends State<QRScannerPage> {
         actions: [
           IconButton(
             icon: Icon(
-              _controller.torchEnabled ? Icons.flash_on : Icons.flash_off,
+              _isTorchOn ? Icons.flash_on : Icons.flash_off,
               color: const Color(0xFF00FF00),
             ),
             onPressed: () {
               _controller.toggleTorch();
-              setState(() {});
+              setState(() {
+                _isTorchOn = !_isTorchOn;
+              });
             },
           ),
           IconButton(
             icon: const Icon(Icons.cameraswitch, color: Color(0xFF00FF00)),
             onPressed: () {
               _controller.switchCamera();
+              setState(() {
+                _isFrontCamera = !_isFrontCamera;
+              });
             },
           ),
         ],
@@ -90,26 +97,28 @@ class _QRScannerPageState extends State<QRScannerPage> {
           
           // Instructions
           Positioned(
-            bottom: 100,
+            bottom: 80,
             left: 0,
             right: 0,
             child: Column(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  margin: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
                   decoration: BoxDecoration(
                     color: const Color(0xFF1A1A1A).withOpacity(0.9),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: const Color(0xFF00FF00)),
                   ),
                   child: const Text(
-                    'Align QR code within the frame',
+                    'Align QR code',
                     textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: Color(0xFF00FF00),
                       fontFamily: 'Courier',
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.bold,
                     ),
                   ),

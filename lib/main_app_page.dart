@@ -1537,42 +1537,42 @@ class _MainAppPageState extends State<MainAppPage> {
                 ),
               ),
               content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Tor Mode
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: isTorEnabled,
-                        onChanged: (value) {
-                          setState(() {
-                            isTorEnabled = value ?? false;
-                          });
-                        },
-                        activeColor: const Color(0xFF00FF00),
-                        checkColor: Colors.black,
-                      ),
-                      const Text(
-                        'Tor Mode',
-                        style: TextStyle(
-                          color: Color(0xFF00FF00),
-                          fontFamily: 'Courier',
-                          fontWeight: FontWeight.bold,
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Tor Mode
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: isTorEnabled,
+                          onChanged: (value) {
+                            setState(() {
+                              isTorEnabled = value ?? false;
+                            });
+                          },
+                          activeColor: const Color(0xFF00FF00),
+                          checkColor: Colors.black,
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Route all traffic through Tor network',
-                    style: TextStyle(
-                      color: Color(0xFF666666),
-                      fontFamily: 'Courier',
-                      fontSize: 10,
+                        const Text(
+                          'Tor Mode',
+                          style: TextStyle(
+                            color: Color(0xFF00FF00),
+                            fontFamily: 'Courier',
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Route all traffic through Tor network',
+                      style: TextStyle(
+                        color: Color(0xFF666666),
+                        fontFamily: 'Courier',
+                        fontSize: 10,
+                          ),
+                        ),
+                      ],
               ),
               actions: [
                 TextButton(
@@ -1958,14 +1958,14 @@ class _MainAppPageState extends State<MainAppPage> {
     return InkWell(
       onTap: () => _showTransactionDetailDialog(tx),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF333333)),
-        ),
-        child: Row(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF333333)),
+      ),
+      child: Row(
         children: [
           Container(
             width: 40,
@@ -2151,63 +2151,63 @@ class _MainAppPageState extends State<MainAppPage> {
           ),
           content: SingleChildScrollView(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
                   'Paste Cashu token:',
-                  style: TextStyle(
-                    color: Color(0xFF00FF00),
-                    fontFamily: 'Courier',
-                    fontWeight: FontWeight.bold,
-                  ),
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(height: 8),
-                TextField(
+              ),
+              const SizedBox(height: 8),
+              TextField(
                   controller: tokenController,
-                  style: const TextStyle(
-                    color: Color(0xFF00FF00),
-                    fontFamily: 'Courier',
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
                     fontSize: 12,
-                  ),
-                  maxLines: 4,
-                  decoration: const InputDecoration(
+                ),
+                maxLines: 4,
+                decoration: const InputDecoration(
                     hintText: 'cashuA...',
-                    hintStyle: TextStyle(
-                      color: Color(0xFF666666),
-                      fontFamily: 'Courier',
-                    ),
-                    border: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF00FF00)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF00FF00)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF00FF00)),
-                    ),
+                  hintStyle: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                  ),
+                  border: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
                         onPressed: () async {
                           // Paste from clipboard
                           final clipboardData = await Clipboard.getData('text/plain');
                           if (clipboardData != null && clipboardData.text != null) {
                             tokenController.text = clipboardData.text!;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
                                   'Token pasted from clipboard',
-                                  style: TextStyle(
-                                    color: Color(0xFF00FF00),
-                                    fontFamily: 'Courier',
-                                  ),
-                                ),
-                                backgroundColor: Color(0xFF1A1A1A),
+                              style: TextStyle(
+                                color: Color(0xFF00FF00),
+                                fontFamily: 'Courier',
+                              ),
+                            ),
+                            backgroundColor: Color(0xFF1A1A1A),
                                 duration: Duration(seconds: 1),
                               ),
                             );
@@ -2226,25 +2226,25 @@ class _MainAppPageState extends State<MainAppPage> {
                               ),
                             );
                           }
-                        },
-                        icon: const Icon(Icons.content_paste, color: Color(0xFF00FF00), size: 16),
-                        label: const Text(
-                          'Paste',
-                          style: TextStyle(
-                            color: Color(0xFF00FF00),
-                            fontFamily: 'Courier',
-                            fontSize: 12,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1A1A1A),
-                          side: const BorderSide(color: Color(0xFF00FF00)),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
+                      },
+                      icon: const Icon(Icons.content_paste, color: Color(0xFF00FF00), size: 16),
+                      label: const Text(
+                        'Paste',
+                        style: TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontFamily: 'Courier',
+                          fontSize: 12,
                         ),
                       ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1A1A1A),
+                        side: const BorderSide(color: Color(0xFF00FF00)),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
+              ),
                 const SizedBox(height: 8),
                 const Text(
                   'The token will be automatically redeemed and added to your wallet.',
@@ -2292,9 +2292,9 @@ class _MainAppPageState extends State<MainAppPage> {
   Future<void> _receiveEcashToken(String token) async {
     // Validate token
     if (token.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
             'Please enter a token',
             style: TextStyle(
               color: Color(0xFFFF6B6B),
@@ -2313,15 +2313,15 @@ class _MainAppPageState extends State<MainAppPage> {
       const SnackBar(
         content: Text(
           'Receiving ecash token...',
-          style: TextStyle(
-            color: Color(0xFF00FF00),
-            fontFamily: 'Courier',
-          ),
-        ),
-        backgroundColor: Color(0xFF1A1A1A),
-        duration: Duration(seconds: 2),
-      ),
-    );
+                      style: TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                      ),
+                    ),
+                    backgroundColor: Color(0xFF1A1A1A),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
 
     try {
       // Call receiveTokens API
@@ -2422,23 +2422,23 @@ class _MainAppPageState extends State<MainAppPage> {
                 onPressed: () {
                   Navigator.of(context).pop();
                   _showAddMintDialog();
-                },
-                child: const Text(
+              },
+              child: const Text(
                   'Add Mint',
-                  style: TextStyle(
-                    color: Color(0xFF00FF00),
-                    fontFamily: 'Courier',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
                     fontWeight: FontWeight.bold,
-                  ),
                 ),
               ),
-            ],
-          );
-        },
-      );
+            ),
+          ],
+        );
+      },
+    );
       return;
-    }
-    
+  }
+
     // If mints are available, show the lightning receive dialog
     final amountController = TextEditingController();
     
@@ -2460,21 +2460,21 @@ class _MainAppPageState extends State<MainAppPage> {
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1A1A1A),
-              title: const Text(
-                'Receive via Lightning',
-                style: TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Receive via Lightning',
+            style: TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
               content: SingleChildScrollView(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
                     const Text(
                       'Select Mint:',
                       style: TextStyle(
@@ -2535,113 +2535,113 @@ class _MainAppPageState extends State<MainAppPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Enter amount to receive:',
-                      style: TextStyle(
-                        color: Color(0xFF00FF00),
-                        fontFamily: 'Courier',
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: amountController,
-                      style: const TextStyle(
-                        color: Color(0xFF00FF00),
-                        fontFamily: 'Courier',
-                      ),
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        hintText: 'Enter amount in sats',
-                        hintStyle: TextStyle(
-                          color: Color(0xFF666666),
-                          fontFamily: 'Courier',
-                        ),
-                        border: OutlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFF00FF00)),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFF00FF00)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFF00FF00)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'This will create a lightning invoice that you can pay to receive ecash tokens.',
-                      style: TextStyle(
-                        color: Color(0xFF666666),
-                        fontFamily: 'Courier',
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
+              const Text(
+                'Enter amount to receive:',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(
-                      color: Color(0xFF00FF00),
-                      fontFamily: 'Courier',
-                    ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: amountController,
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  hintText: 'Enter amount in sats',
+                  hintStyle: TextStyle(
+                    color: Color(0xFF666666),
+                    fontFamily: 'Courier',
+                  ),
+                  border: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00FF00)),
                   ),
                 ),
-                TextButton(
-                  onPressed: () async {
-                    final amountText = amountController.text.trim();
-                    
-                    if (amountText.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Please enter an amount',
-                            style: TextStyle(
-                              color: Color(0xFFFF6B6B),
-                              fontFamily: 'Courier',
-                            ),
-                          ),
-                          backgroundColor: Color(0xFF1A1A1A),
-                          duration: Duration(seconds: 2),
+              ),
+                    const SizedBox(height: 12),
+              const Text(
+                'This will create a lightning invoice that you can pay to receive ecash tokens.',
+                style: TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 10,
+                ),
+              ),
+            ],
+                ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                final amountText = amountController.text.trim();
+                
+                if (amountText.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Please enter an amount',
+                        style: TextStyle(
+                          color: Color(0xFFFF6B6B),
+                          fontFamily: 'Courier',
                         ),
-                      );
-                      return;
-                    }
+                      ),
+                      backgroundColor: Color(0xFF1A1A1A),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                  return;
+                }
 
-                    final amount = int.tryParse(amountText);
-                    if (amount == null || amount <= 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Please enter a valid amount',
-                            style: TextStyle(
-                              color: Color(0xFFFF6B6B),
-                              fontFamily: 'Courier',
-                            ),
-                          ),
-                          backgroundColor: Color(0xFF1A1A1A),
-                          duration: Duration(seconds: 2),
+                final amount = int.tryParse(amountText);
+                if (amount == null || amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Please enter a valid amount',
+                        style: TextStyle(
+                          color: Color(0xFFFF6B6B),
+                          fontFamily: 'Courier',
                         ),
-                      );
-                      return;
-                    }
+                      ),
+                      backgroundColor: Color(0xFF1A1A1A),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                  return;
+                }
 
-                    Navigator.of(context).pop();
+                Navigator.of(context).pop();
                     await _createLightningInvoice(amount, mintUrl: selectedMint);
-                  },
-                  child: const Text(
-                    'Create Invoice',
-                    style: TextStyle(
-                      color: Color(0xFF00FF00),
-                      fontFamily: 'Courier',
-                    ),
-                  ),
+              },
+              child: const Text(
+                'Create Invoice',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
                 ),
-              ],
+              ),
+            ),
+          ],
             );
           },
         );
@@ -2683,31 +2683,31 @@ class _MainAppPageState extends State<MainAppPage> {
       String? selectedMintUrl = mintUrl;
       
       if (selectedMintUrl == null) {
-        final mints = await listMints();
-        if (mints.isEmpty) {
-          Navigator.of(context).pop(); // Close loading dialog
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'No mints available. Please add a mint first.',
-                style: TextStyle(
-                  color: Color(0xFFFF6B6B),
-                  fontFamily: 'Courier',
-                ),
+      final mints = await listMints();
+      if (mints.isEmpty) {
+        Navigator.of(context).pop(); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No mints available. Please add a mint first.',
+              style: TextStyle(
+                color: Color(0xFFFF6B6B),
+                fontFamily: 'Courier',
               ),
-              backgroundColor: Color(0xFF1A1A1A),
-              duration: Duration(seconds: 3),
             ),
-          );
-          return;
-        }
+            backgroundColor: Color(0xFF1A1A1A),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
 
-        // Extract mint URL from format "mint_url:unit" (e.g., "http://127.0.0.1:3338:sat")
-        final mintString = mints.first;
-        final lastColonIndex = mintString.lastIndexOf(':');
+      // Extract mint URL from format "mint_url:unit" (e.g., "http://127.0.0.1:3338:sat")
+      final mintString = mints.first;
+      final lastColonIndex = mintString.lastIndexOf(':');
         selectedMintUrl = lastColonIndex != -1 
-            ? mintString.substring(0, lastColonIndex)
-            : mintString;
+          ? mintString.substring(0, lastColonIndex)
+          : mintString;
       }
       
       print('Creating lightning invoice for mint: $selectedMintUrl');
@@ -2765,17 +2765,17 @@ class _MainAppPageState extends State<MainAppPage> {
             width: 300,
             child: SingleChildScrollView(
               child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Amount: $amount sats',
-                  style: const TextStyle(
-                    color: Color(0xFF00FF00),
-                    fontFamily: 'Courier',
-                    fontWeight: FontWeight.bold,
-                  ),
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Amount: $amount sats',
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
                 ),
+              ),
                 const SizedBox(height: 16),
                 // QR Code display
                 Center(
@@ -2796,16 +2796,16 @@ class _MainAppPageState extends State<MainAppPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Invoice:',
-                  style: TextStyle(
-                    color: Color(0xFF00FF00),
-                    fontFamily: 'Courier',
-                    fontWeight: FontWeight.bold,
-                  ),
+              const SizedBox(height: 16),
+              const Text(
+                'Invoice:',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(height: 8),
+              ),
+              const SizedBox(height: 8),
               InkWell(
                 onTap: () async {
                   await Clipboard.setData(ClipboardData(text: invoice));
@@ -2827,33 +2827,33 @@ class _MainAppPageState extends State<MainAppPage> {
                 },
                 borderRadius: BorderRadius.circular(4),
                 child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFF00FF00)),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFF00FF00)),
+                  borderRadius: BorderRadius.circular(4),
+                ),
                   child: Row(
                     children: [
                       Expanded(
                         child: Text(
-                          invoice,
+                  invoice,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFF00FF00),
-                            fontFamily: 'Courier',
-                            fontSize: 10,
-                          ),
-                        ),
-                      ),
+                  style: const TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                    fontSize: 10,
+                  ),
+                ),
+              ),
                       const SizedBox(width: 8),
                       const Icon(
                         Icons.copy,
-                        color: Color(0xFF00FF00),
+                  color: Color(0xFF00FF00),
                         size: 16,
-                      ),
+                ),
                     ],
-                  ),
+              ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -2865,7 +2865,7 @@ class _MainAppPageState extends State<MainAppPage> {
                   fontSize: 10,
                 ),
               ),
-              ],
+            ],
               ),
             ),
           ),
@@ -3279,9 +3279,9 @@ class _MainAppPageState extends State<MainAppPage> {
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2A2A2A),
-                        borderRadius: BorderRadius.circular(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A2A2A),
+                          borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: const Color(0xFF00FF00)),
                       ),
                       child: DropdownButton<String>(
@@ -3289,20 +3289,20 @@ class _MainAppPageState extends State<MainAppPage> {
                         isExpanded: true,
                         dropdownColor: const Color(0xFF2A2A2A),
                         underline: const SizedBox(),
-                        style: const TextStyle(
-                          color: Color(0xFF00FF00),
-                          fontFamily: 'Courier',
-                          fontSize: 12,
-                        ),
+                                    style: const TextStyle(
+                                      color: Color(0xFF00FF00),
+                                      fontFamily: 'Courier',
+                                      fontSize: 12,
+                                    ),
                         items: List.generate(parsedMints.length, (index) {
                           final displayText = parsedMints[index];
                           return DropdownMenuItem<String>(
                             value: displayText,
                             child: Text(
                               index == 0 ? 'Default Mint' : displayText,
-                              style: const TextStyle(
+                                    style: const TextStyle(
                                 color: Color(0xFF00FF00),
-                                fontFamily: 'Courier',
+                                      fontFamily: 'Courier',
                               ),
                             ),
                           );
@@ -3509,16 +3509,16 @@ class _MainAppPageState extends State<MainAppPage> {
                         final clipboardData = await Clipboard.getData('text/plain');
                         if (clipboardData != null && clipboardData.text != null) {
                           invoiceController.text = clipboardData.text!;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
                                 'Invoice pasted from clipboard',
-                                style: TextStyle(
-                                  color: Color(0xFF00FF00),
-                                  fontFamily: 'Courier',
-                                ),
+                              style: TextStyle(
+                                color: Color(0xFF00FF00),
+                                fontFamily: 'Courier',
                               ),
-                              backgroundColor: Color(0xFF1A1A1A),
+                            ),
+                            backgroundColor: Color(0xFF1A1A1A),
                               duration: Duration(seconds: 1),
                             ),
                           );
@@ -3619,7 +3619,7 @@ class _MainAppPageState extends State<MainAppPage> {
       );
       return;
     }
-    
+
     final int parsedAmount = int.tryParse(amount) ?? 0;
     if (parsedAmount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -3695,7 +3695,7 @@ class _MainAppPageState extends State<MainAppPage> {
       
       // Refresh wallet data
       _refreshWalletData();
-    } catch (e) {
+      } catch (e) {
       print('Error creating ecash token: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -3859,7 +3859,7 @@ class _MainAppPageState extends State<MainAppPage> {
       },
     );
   }
- 
+
   /// Show payment success message
   void _showPaymentSuccess(int mintedAmount) {
     // Show success message
