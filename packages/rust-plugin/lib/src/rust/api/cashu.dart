@@ -310,6 +310,10 @@ class TransactionInfo {
   final BigInt amount;
   final String? memo;
   final BigInt timestamp;
+  final String? transactionType;
+  final String? lightningInvoice;
+  final String? ecashToken;
+  final Map<String, String> metadata;
 
   const TransactionInfo({
     required this.id,
@@ -317,6 +321,10 @@ class TransactionInfo {
     required this.amount,
     this.memo,
     required this.timestamp,
+    this.transactionType,
+    this.lightningInvoice,
+    this.ecashToken,
+    required this.metadata,
   });
 
   @override
@@ -325,7 +333,11 @@ class TransactionInfo {
       direction.hashCode ^
       amount.hashCode ^
       memo.hashCode ^
-      timestamp.hashCode;
+      timestamp.hashCode ^
+      transactionType.hashCode ^
+      lightningInvoice.hashCode ^
+      ecashToken.hashCode ^
+      metadata.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -336,7 +348,11 @@ class TransactionInfo {
           direction == other.direction &&
           amount == other.amount &&
           memo == other.memo &&
-          timestamp == other.timestamp;
+          timestamp == other.timestamp &&
+          transactionType == other.transactionType &&
+          lightningInvoice == other.lightningInvoice &&
+          ecashToken == other.ecashToken &&
+          metadata == other.metadata;
 }
 
 /// Wallet information structure

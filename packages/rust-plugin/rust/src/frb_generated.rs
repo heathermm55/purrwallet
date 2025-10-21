@@ -2020,12 +2020,21 @@ impl SseDecode for crate::api::cashu::TransactionInfo {
         let mut var_amount = <u64>::sse_decode(deserializer);
         let mut var_memo = <Option<String>>::sse_decode(deserializer);
         let mut var_timestamp = <u64>::sse_decode(deserializer);
+        let mut var_transactionType = <Option<String>>::sse_decode(deserializer);
+        let mut var_lightningInvoice = <Option<String>>::sse_decode(deserializer);
+        let mut var_ecashToken = <Option<String>>::sse_decode(deserializer);
+        let mut var_metadata =
+            <std::collections::HashMap<String, String>>::sse_decode(deserializer);
         return crate::api::cashu::TransactionInfo {
             id: var_id,
             direction: var_direction,
             amount: var_amount,
             memo: var_memo,
             timestamp: var_timestamp,
+            transaction_type: var_transactionType,
+            lightning_invoice: var_lightningInvoice,
+            ecash_token: var_ecashToken,
+            metadata: var_metadata,
         };
     }
 }
@@ -2356,6 +2365,10 @@ impl flutter_rust_bridge::IntoDart for crate::api::cashu::TransactionInfo {
             self.amount.into_into_dart().into_dart(),
             self.memo.into_into_dart().into_dart(),
             self.timestamp.into_into_dart().into_dart(),
+            self.transaction_type.into_into_dart().into_dart(),
+            self.lightning_invoice.into_into_dart().into_dart(),
+            self.ecash_token.into_into_dart().into_dart(),
+            self.metadata.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -2682,6 +2695,10 @@ impl SseEncode for crate::api::cashu::TransactionInfo {
         <u64>::sse_encode(self.amount, serializer);
         <Option<String>>::sse_encode(self.memo, serializer);
         <u64>::sse_encode(self.timestamp, serializer);
+        <Option<String>>::sse_encode(self.transaction_type, serializer);
+        <Option<String>>::sse_encode(self.lightning_invoice, serializer);
+        <Option<String>>::sse_encode(self.ecash_token, serializer);
+        <std::collections::HashMap<String, String>>::sse_encode(self.metadata, serializer);
     }
 }
 

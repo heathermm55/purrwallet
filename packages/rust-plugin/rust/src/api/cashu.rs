@@ -94,6 +94,14 @@ pub struct TransactionInfo {
     pub amount: u64,
     pub memo: Option<String>,
     pub timestamp: u64,
+    // Extended fields for transaction details
+    #[serde(rename = "transactionType")]
+    pub transaction_type: Option<String>,
+    #[serde(rename = "lightningInvoice")]
+    pub lightning_invoice: Option<String>,
+    #[serde(rename = "ecashToken")]
+    pub ecash_token: Option<String>,
+    pub metadata: HashMap<String, String>,
 }
 
 /// Mint information structure for NUT-06
@@ -392,6 +400,11 @@ pub async fn get_all_transactions() -> Result<Vec<TransactionInfo>, String> {
             amount: tx.amount.into(),
             memo: tx.memo,
             timestamp: tx.timestamp,
+            // Extract transaction metadata
+            transaction_type: tx.metadata.get("transaction_type").cloned(),
+            lightning_invoice: tx.metadata.get("lightning_invoice").cloned(),
+            ecash_token: tx.metadata.get("ecash_token").cloned(),
+            metadata: tx.metadata,
         })
         .collect();
 
@@ -551,7 +564,15 @@ pub async fn send_tokens(mint_url: String, amount: u64, memo: Option<String>) ->
 
         // Use CDK MultiMintWallet API directly
         let send_amount = Amount::from(amount);
-        let send_options = SendOptions::default();
+        
+        // Add metadata for transaction tracking (token will be added after generation)
+        let mut metadata = HashMap::new();
+        metadata.insert("transaction_type".to_string(), "ecash_send".to_string());
+        
+        let send_options = SendOptions {
+            metadata,
+            ..Default::default()
+        };
         
         let prepared_send = multi_mint_wallet.prepare_send(&wallet_key, send_amount, send_options).await
             .map_err(|e| format!("Failed to prepare send: {}", e))?;
@@ -560,7 +581,13 @@ pub async fn send_tokens(mint_url: String, amount: u64, memo: Option<String>) ->
         let token = multi_mint_wallet.send(&wallet_key, prepared_send, send_memo).await
             .map_err(|e| format!("Failed to send: {}", e))?;
 
-        Ok(token.to_string())
+        let token_str = token.to_string();
+
+        // Note: Token is generated after transaction is created, so we cannot
+        // store it in the transaction metadata at this time. 
+        // The token can still be retrieved from the token string returned to the user.
+
+        Ok(token_str)
 }
 
 /// Receive tokens using CDK MultiMintWallet API directly - auto-detects mint URL from token
@@ -591,7 +618,15 @@ pub async fn receive_tokens(token: String) -> Result<u64, String> {
         let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
             .ok_or("Failed to get wallet")?;
 
-        let receive_options = ReceiveOptions::default();
+        // Add metadata for transaction tracking
+        let mut metadata = HashMap::new();
+        metadata.insert("transaction_type".to_string(), "ecash_receive".to_string());
+        metadata.insert("ecash_token".to_string(), token.clone());
+
+        let receive_options = ReceiveOptions {
+            metadata,
+            ..Default::default()
+        };
         let received_amount = wallet.receive(&token, receive_options).await
             .map_err(|e| format!("Failed to receive: {}", e))?;
 

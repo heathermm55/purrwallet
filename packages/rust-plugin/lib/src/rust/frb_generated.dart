@@ -1862,14 +1862,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TransactionInfo dco_decode_transaction_info(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 5)
-      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    if (arr.length != 9)
+      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
     return TransactionInfo(
       id: dco_decode_String(arr[0]),
       direction: dco_decode_String(arr[1]),
       amount: dco_decode_u_64(arr[2]),
       memo: dco_decode_opt_String(arr[3]),
       timestamp: dco_decode_u_64(arr[4]),
+      transactionType: dco_decode_opt_String(arr[5]),
+      lightningInvoice: dco_decode_opt_String(arr[6]),
+      ecashToken: dco_decode_opt_String(arr[7]),
+      metadata: dco_decode_Map_String_String(arr[8]),
     );
   }
 
@@ -2289,12 +2293,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_amount = sse_decode_u_64(deserializer);
     var var_memo = sse_decode_opt_String(deserializer);
     var var_timestamp = sse_decode_u_64(deserializer);
+    var var_transactionType = sse_decode_opt_String(deserializer);
+    var var_lightningInvoice = sse_decode_opt_String(deserializer);
+    var var_ecashToken = sse_decode_opt_String(deserializer);
+    var var_metadata = sse_decode_Map_String_String(deserializer);
     return TransactionInfo(
       id: var_id,
       direction: var_direction,
       amount: var_amount,
       memo: var_memo,
       timestamp: var_timestamp,
+      transactionType: var_transactionType,
+      lightningInvoice: var_lightningInvoice,
+      ecashToken: var_ecashToken,
+      metadata: var_metadata,
     );
   }
 
@@ -2692,6 +2704,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_u_64(self.amount, serializer);
     sse_encode_opt_String(self.memo, serializer);
     sse_encode_u_64(self.timestamp, serializer);
+    sse_encode_opt_String(self.transactionType, serializer);
+    sse_encode_opt_String(self.lightningInvoice, serializer);
+    sse_encode_opt_String(self.ecashToken, serializer);
+    sse_encode_Map_String_String(self.metadata, serializer);
   }
 
   @protected

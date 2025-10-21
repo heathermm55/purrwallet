@@ -54,12 +54,6 @@ class _MintDetailPageState extends State<MintDetailPage> {
           icon: const Icon(Icons.arrow_back, color: Color(0xFF00FF00)),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: Color(0xFF00FF00)),
-            onPressed: _showMintOptions,
-          ),
-        ],
       ),
       body: isLoading
           ? const Center(
