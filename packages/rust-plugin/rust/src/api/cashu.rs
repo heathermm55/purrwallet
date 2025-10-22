@@ -997,10 +997,24 @@ pub async fn validate_mnemonic_phrase(mnemonic_phrase: String) -> Result<bool, S
 /// Set Tor configuration
 #[cfg(feature = "tor")]
 pub async fn set_tor_config(policy: TorPolicy) -> Result<(), String> {
+    set_tor_config_with_paths(policy, None, None, None).await
+}
+
+/// Set Tor configuration with custom storage paths
+#[cfg(feature = "tor")]
+pub async fn set_tor_config_with_paths(
+    policy: TorPolicy,
+    cache_dir: Option<String>,
+    state_dir: Option<String>,
+    bridges: Option<Vec<String>>,
+) -> Result<(), String> {
     let tor_config = TorConfig {
         policy: policy.into(),
         client_config: None,
         accept_invalid_certs: false,
+        cache_dir,
+        state_dir,
+        bridges,
     };
     
     // Set Tor configuration
@@ -1063,6 +1077,14 @@ pub async fn is_tor_enabled() -> Result<bool, String> {
     }
 }
 
+/// Check if Tor is ready (fully bootstrapped and can make connections)
+#[cfg(feature = "tor")]
+pub async fn is_tor_ready() -> Result<bool, String> {
+    use cdk::wallet::is_tor_ready as cdk_is_tor_ready;
+    cdk_is_tor_ready().await
+        .map_err(|e| format!("Failed to check Tor status: {}", e))
+}
+
 /// Reinitialize MultiMintWallet with current Tor configuration
 #[cfg(feature = "tor")]
 pub async fn reinitialize_with_tor_config(database_dir: String, seed_hex: String) -> Result<String, String> {
@@ -1103,6 +1125,11 @@ pub async fn init_multi_mint_wallet_with_tor(
 #[cfg(not(feature = "tor"))]
 pub async fn set_tor_config(_policy: ()) -> Result<(), String> {
     Err("Tor feature not enabled".to_string())
+}
+
+#[cfg(not(feature = "tor"))]
+pub async fn is_tor_ready() -> Result<bool, String> {
+    Ok(false)
 }
 
 #[cfg(not(feature = "tor"))]

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rust_plugin/src/rust/api/cashu.dart';
+import '../wallet/services/wallet_service.dart';
 import 'mint_detail_page.dart';
 
 /// Mints management page with add/remove functionality
@@ -11,6 +12,14 @@ class MintsPage extends StatefulWidget {
 }
 
 class _MintsPageState extends State<MintsPage> {
+  /// Format mint URL for display - convert .onion addresses to http://
+  String _formatMintUrl(String url) {
+    if (url.contains('.onion') && url.startsWith('https://')) {
+      return url.replaceFirst('https://', 'http://');
+    }
+    return url;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -182,7 +191,7 @@ class _MintsPageState extends State<MintsPage> {
                     color: Color(0xFF00FF00),
                   ),
                   title: Text(
-                    mintUrl,
+                    _formatMintUrl(mintUrl),
                     style: const TextStyle(
                       color: Color(0xFF00FF00),
                       fontFamily: 'Courier',
@@ -466,12 +475,61 @@ class _MintsPageState extends State<MintsPage> {
 
   void _addMint(String mintUrl) async {
     try {
+      // Check if this is an onion address
+      final isOnion = mintUrl.contains('.onion');
+      
       // Use the processed URL from the dialog (already has correct format)
       print('Adding mint with URL: $mintUrl');
       
-      // Add the mint using the Rust API
-      final result = addMint(mintUrl: mintUrl);
+      // For onion addresses, show a dialog
+      if (isOnion && mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return Dialog(
+              backgroundColor: const Color(0xFF1A1A1A),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: Color(0xFF00FF00)),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Connecting to Tor network...',
+                      style: TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'This may take 30-60 seconds\nPlease wait...',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFFAAAAAA),
+                        fontFamily: 'Courier',
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      }
+      
+      // Add the mint using WalletService (handles Tor configuration for .onion)
+      final result = await WalletService.addMintService(mintUrl, 'sat');
       print('Add mint result: $result');
+      
+      // Close the Tor connection dialog if it was shown
+      if (isOnion && mounted) {
+        Navigator.of(context).pop();
+      }
 
       // Show success message
       if (mounted) {
@@ -492,6 +550,13 @@ class _MintsPageState extends State<MintsPage> {
       }
     } catch (e) {
       print('Failed to add mint: $e');
+      
+      // Close the Tor connection dialog if it was shown
+      final isOnion = mintUrl.contains('.onion');
+      if (isOnion && mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

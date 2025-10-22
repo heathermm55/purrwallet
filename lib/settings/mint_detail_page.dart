@@ -36,6 +36,14 @@ class _MintDetailPageState extends State<MintDetailPage> {
     _loadMintSettings();
   }
 
+  /// Format mint URL for display - convert .onion addresses to http://
+  String _formatMintUrl(String url) {
+    if (url.contains('.onion') && url.startsWith('https://')) {
+      return url.replaceFirst('https://', 'http://');
+    }
+    return url;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -79,7 +87,7 @@ class _MintDetailPageState extends State<MintDetailPage> {
     return _buildSection(
       title: 'GENERAL',
       children: [
-        _buildInfoRow('Mint', widget.mintUrl),
+        _buildInfoRow('Mint', _formatMintUrl(widget.mintUrl)),
         _buildInfoRow('Unit', widget.unit.toUpperCase()),
         _buildInfoRow('Balance', isLoadingBalance ? 'Loading...' : '$balance sats'),
         _buildActionRow(
@@ -184,6 +192,7 @@ class _MintDetailPageState extends State<MintDetailPage> {
       child: Row(
         children: [
           Expanded(
+            flex: 2,
             child: Text(
               label,
               style: const TextStyle(
@@ -193,11 +202,17 @@ class _MintDetailPageState extends State<MintDetailPage> {
               ),
             ),
           ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Color(0xFF666666),
-              fontFamily: 'Courier',
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+              style: const TextStyle(
+                color: Color(0xFF666666),
+                fontFamily: 'Courier',
+              ),
             ),
           ),
         ],
@@ -352,7 +367,7 @@ class _MintDetailPageState extends State<MintDetailPage> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: QrImageView(
-                    data: widget.mintUrl,
+                    data: _formatMintUrl(widget.mintUrl),
                     version: QrVersions.auto,
                     size: 200.0,
                     backgroundColor: const Color(0xFF1A1A1A),
@@ -365,7 +380,7 @@ class _MintDetailPageState extends State<MintDetailPage> {
                 // Mint URL (clickable to copy)
                 InkWell(
                   onTap: () {
-                    Clipboard.setData(ClipboardData(text: widget.mintUrl));
+                    Clipboard.setData(ClipboardData(text: _formatMintUrl(widget.mintUrl)));
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text(
@@ -391,7 +406,7 @@ class _MintDetailPageState extends State<MintDetailPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            widget.mintUrl,
+                            _formatMintUrl(widget.mintUrl),
                             style: const TextStyle(
                               color: Color(0xFF00FF00),
                               fontFamily: 'Courier',
@@ -538,7 +553,7 @@ class _MintDetailPageState extends State<MintDetailPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              widget.mintUrl,
+              _formatMintUrl(widget.mintUrl),
               style: const TextStyle(
                 color: Color(0xFF666666),
                 fontFamily: 'Courier',

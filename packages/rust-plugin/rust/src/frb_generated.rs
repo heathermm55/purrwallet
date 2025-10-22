@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.7.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1700835654;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1750145707;
 
 // Section: executor
 
@@ -790,6 +790,41 @@ fn wire__crate__api__cashu__is_tor_enabled_impl(
         },
     )
 }
+fn wire__crate__api__cashu__is_tor_ready_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "is_tor_ready",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::cashu::is_tor_ready().await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__cashu__list_mints_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1423,6 +1458,51 @@ fn wire__crate__api__cashu__set_tor_config_impl(
                 transform_result_sse::<_, String>(
                     (move || async move {
                         let output_ok = crate::api::cashu::set_tor_config(api_policy).await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__cashu__set_tor_config_with_paths_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "set_tor_config_with_paths",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_policy = <crate::api::cashu::TorPolicy>::sse_decode(&mut deserializer);
+            let api_cache_dir = <Option<String>>::sse_decode(&mut deserializer);
+            let api_state_dir = <Option<String>>::sse_decode(&mut deserializer);
+            let api_bridges = <Option<Vec<String>>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::cashu::set_tor_config_with_paths(
+                            api_policy,
+                            api_cache_dir,
+                            api_state_dir,
+                            api_bridges,
+                        )
+                        .await?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -2130,32 +2210,39 @@ fn pde_ffi_dispatcher_primary_impl(
             data_len,
         ),
         21 => wire__crate__api__cashu__is_tor_enabled_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__cashu__list_mints_impl(port, ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__cashu__mnemonic_to_seed_hex_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__cashu__parse_cashu_token_impl(port, ptr, rust_vec_len, data_len),
-        31 => {
+        22 => wire__crate__api__cashu__is_tor_ready_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__cashu__list_mints_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__cashu__mnemonic_to_seed_hex_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__cashu__parse_cashu_token_impl(port, ptr, rust_vec_len, data_len),
+        32 => {
             wire__crate__api__cashu__pay_invoice_for_wallet_impl(port, ptr, rust_vec_len, data_len)
         }
-        33 => wire__crate__api__cashu__receive_tokens_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__cashu__reinitialize_with_tor_config_impl(
+        34 => wire__crate__api__cashu__receive_tokens_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__cashu__reinitialize_with_tor_config_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        35 => wire__crate__api__cashu__remove_mint_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__cashu__seed_hex_to_mnemonic_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__cashu__send_tokens_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__cashu__set_tor_config_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__cashu__validate_mnemonic_phrase_impl(
+        36 => wire__crate__api__cashu__remove_mint_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__cashu__seed_hex_to_mnemonic_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__cashu__send_tokens_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__cashu__set_tor_config_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__cashu__set_tor_config_with_paths_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        43 => wire__crate__api__cashu__verify_token_dleq_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__cashu__verify_token_p2pk_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__cashu__wallet_exists_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__cashu__validate_mnemonic_phrase_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        45 => wire__crate__api__cashu__verify_token_dleq_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__cashu__verify_token_p2pk_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__cashu__wallet_exists_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -2174,16 +2261,16 @@ fn pde_ffi_dispatcher_sync_impl(
             wire__crate__api__nostr__get_public_key_from_private_impl(ptr, rust_vec_len, data_len)
         }
         17 => wire__crate__api__nostr__greet_impl(ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__nostr__nip04_decrypt_impl(ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__nostr__nip04_encrypt_impl(ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__nostr__nip44_decrypt_impl(ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__nostr__nip44_encrypt_impl(ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__nostr__npub_to_public_key_impl(ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__nostr__nsec_to_secret_key_impl(ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__nostr__public_key_to_npub_impl(ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__nostr__secret_key_to_nsec_impl(ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__nostr__sign_event_impl(ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__nostr__verify_event_impl(ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__nostr__nip04_decrypt_impl(ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__nostr__nip04_encrypt_impl(ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__nostr__nip44_decrypt_impl(ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__nostr__nip44_encrypt_impl(ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__nostr__npub_to_public_key_impl(ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__nostr__nsec_to_secret_key_impl(ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__nostr__public_key_to_npub_impl(ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__nostr__secret_key_to_nsec_impl(ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__nostr__sign_event_impl(ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__nostr__verify_event_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }

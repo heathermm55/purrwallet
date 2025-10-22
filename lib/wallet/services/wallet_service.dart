@@ -1,6 +1,7 @@
 import 'package:rust_plugin/src/rust/api/cashu.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
 /// Service for managing wallet operations
@@ -38,7 +39,7 @@ class WalletService {
       final databaseDir = documentsDir.path;
 
       // Load Tor configuration
-      await _loadAndApplyTorConfig();
+      _loadAndApplyTorConfig();
 
       // Initialize MultiMintWallet
       final initResult = initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
@@ -81,27 +82,38 @@ class WalletService {
   /// Load and apply Tor configuration from storage
   static Future<void> _loadAndApplyTorConfig() async {
     try {
-      final torEnabled = await _secureStorage.read(key: 'tor_enabled');
-      final torMode = await _secureStorage.read(key: 'tor_mode');
+      // Read Tor mode from SharedPreferences (same as settings page)
+      final prefs = await SharedPreferences.getInstance();
+      final torMode = prefs.getString('torMode') ?? 'OnionOnly';
       
-      if (torEnabled == 'true' && torMode != null) {
-        // Convert string to TorPolicy enum
-        TorPolicy policy;
-        switch (torMode) {
-          case 'OnionOnly':
-            policy = TorPolicy.onionOnly;
-            break;
-          case 'Always':
-            policy = TorPolicy.always;
-            break;
-          default:
-            policy = TorPolicy.onionOnly;
-        }
-        
-        // Apply Tor configuration
-        await setTorConfig(policy: policy);
-        print('Applied Tor configuration: $torMode');
+      print('Loading Tor configuration from SharedPreferences: $torMode');
+      
+      // Convert string to TorPolicy enum
+      TorPolicy policy;
+      switch (torMode) {
+        case 'Always':
+          policy = TorPolicy.always;
+          break;
+        case 'Never':
+          policy = TorPolicy.never;
+          break;
+        case 'OnionOnly':
+        default:
+          policy = TorPolicy.onionOnly;
       }
+      
+      // Get application documents directory for Tor storage
+      final documentsDir = await getApplicationDocumentsDirectory();
+      final torCacheDir = '${documentsDir.path}/tor_cache';
+      final torStateDir = '${documentsDir.path}/tor_state';
+      
+      // Apply Tor configuration with storage paths and bridges
+      await setTorConfigWithPaths(
+        policy: policy,
+        cacheDir: torCacheDir,
+        stateDir: torStateDir,
+        bridges: null,
+      );
     } catch (e) {
       print('Failed to load Tor configuration: $e');
     }
@@ -133,8 +145,26 @@ class WalletService {
   /// Add a new mint to the wallet
   static Future<String> addMintService(String mintUrl, String unit) async {
     try {
-      return addMint(mintUrl: mintUrl);
+      return await addMint(mintUrl: mintUrl);
     } catch (e) {
+      String errorMsg = e.toString();
+      
+      // Check if this is a Tor initialization error
+      if (errorMsg.contains('Tor is not initialized')) {
+        // For .onion addresses, check if Tor is ready and provide helpful message
+        if (mintUrl.contains('.onion')) {
+          try {
+            final isReady = await isTorReady();
+            if (!isReady) {
+              throw Exception('Tor network is still connecting. Please wait a moment and try again.\n\n⏱️ This usually takes 30-60 seconds on first connection.\n\n💡 Tip: The connection is happening in the background. Try again in a few moments.');
+            }
+          } catch (_) {
+            // If we can't check status, provide general message
+            throw Exception('Tor network is still connecting. Please wait a moment and try again.');
+          }
+        }
+      }
+      
       throw Exception('Failed to add mint: $e');
     }
   }
@@ -151,11 +181,26 @@ class WalletService {
   /// Get wallet info
   static Future<WalletInfo?> getWalletInfoService(String mintUrl, String unit) async {
     try {
-      final documentsDir = await getApplicationDocumentsDirectory();
-      final databaseDir = documentsDir.path;
-      
-      return getWalletInfo(mintUrl: mintUrl);
+      return await getWalletInfo(mintUrl: mintUrl);
     } catch (e) {
+      String errorMsg = e.toString();
+      
+      // Check if this is a Tor initialization error for .onion addresses
+      if (errorMsg.contains('Tor is not initialized') && mintUrl.contains('.onion')) {
+        print('Tor not ready for mint info: $errorMsg');
+        // Check if Tor is ready
+        try {
+          final isReady = await isTorReady();
+          if (!isReady) {
+            print('Tor still connecting, mint info will be available once Tor is ready');
+          }
+        } catch (_) {
+          // Ignore error checking status
+        }
+        // Return null instead of throwing, so UI can handle gracefully
+        return null;
+      }
+      
       print('Failed to get wallet info: $e');
       return null;
     }

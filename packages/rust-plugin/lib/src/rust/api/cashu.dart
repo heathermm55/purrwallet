@@ -162,12 +162,28 @@ Future<bool> validateMnemonicPhrase({required String mnemonicPhrase}) => RustLib
 Future<void> setTorConfig({required TorPolicy policy}) =>
     RustLib.instance.api.crateApiCashuSetTorConfig(policy: policy);
 
+/// Set Tor configuration with custom storage paths
+Future<void> setTorConfigWithPaths({
+  required TorPolicy policy,
+  String? cacheDir,
+  String? stateDir,
+  List<String>? bridges,
+}) => RustLib.instance.api.crateApiCashuSetTorConfigWithPaths(
+  policy: policy,
+  cacheDir: cacheDir,
+  stateDir: stateDir,
+  bridges: bridges,
+);
+
 /// Get current Tor configuration
 Future<TorPolicy> getTorConfig() =>
     RustLib.instance.api.crateApiCashuGetTorConfig();
 
 /// Check if Tor is currently enabled
 Future<bool> isTorEnabled() => RustLib.instance.api.crateApiCashuIsTorEnabled();
+
+/// Check if Tor is ready (fully bootstrapped and can make connections)
+Future<bool> isTorReady() => RustLib.instance.api.crateApiCashuIsTorReady();
 
 /// Reinitialize MultiMintWallet with current Tor configuration
 Future<String> reinitializeWithTorConfig({

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:rust_plugin/src/rust/api/cashu.dart';
 import 'mints_page.dart';
 
@@ -366,10 +367,10 @@ class SettingsPage extends StatelessWidget {
   }
 
   void _showNetworkDialog(BuildContext context) async {
-    const storage = FlutterSecureStorage();
+    final prefs = await SharedPreferences.getInstance();
     
-    // Load current settings
-    String torMode = await storage.read(key: 'tor_mode') ?? 'OnionOnly';
+    // Load current settings from SharedPreferences
+    String torMode = prefs.getString('torMode') ?? 'OnionOnly';
     
     // If torMode is Always, enable Tor; otherwise disable it (OnionOnly is default)
     bool isTorEnabled = torMode == 'Always';
@@ -467,12 +468,12 @@ class SettingsPage extends StatelessWidget {
 
   void _saveNetworkSettings(BuildContext context, String torMode) async {
     try {
-      const storage = FlutterSecureStorage();
+      final prefs = await SharedPreferences.getInstance();
       
-      // Save Tor mode (OnionOnly or Always)
-      await storage.write(key: 'tor_mode', value: torMode);
+      // Save Tor mode (OnionOnly or Always) to SharedPreferences
+      await prefs.setString('torMode', torMode);
       
-      print('Saving network settings:');
+      print('Saving network settings to SharedPreferences:');
       print('Tor mode: $torMode');
 
       ScaffoldMessenger.of(context).showSnackBar(

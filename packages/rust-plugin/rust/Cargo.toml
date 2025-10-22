@@ -27,6 +27,6 @@ openssl = { version = "0.10", features = ["vendored"] }
 
 # Local dependencies - use local nostr and cdk
 nostr = { path = "../../../../nostr/crates/nostr", features = ["nip04", "nip44", "nip60"] }
-cdk = { path = "../../../../cdk/crates/cdk", features = ["wallet", "tor"] }
+cdk = { path = "../../../../cdk/crates/cdk", default-features = false, features = ["wallet", "tor"] }
 cdk-sqlite = { path = "../../../../cdk/crates/cdk-sqlite", features = ["wallet"] }
 cashu = { path = "../../../../cdk/crates/cashu" }

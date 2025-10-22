@@ -864,23 +864,73 @@ class _MainAppPageState extends State<MainAppPage> {
 
   void _addMint(String mintUrl, String alias) async {
     try {
+      // Check if this is an onion address
+      final isOnion = mintUrl.contains('.onion');
+      
       // Show loading indicator
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'Adding mint...',
-              style: TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
+              isOnion ? 'Initializing Tor connection...' : 'Adding mint...',
+              style: const TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
             ),
-            backgroundColor: Color(0xFF1A1A1A),
-            duration: Duration(seconds: 1),
+            backgroundColor: const Color(0xFF1A1A1A),
+            duration: Duration(seconds: isOnion ? 3 : 1),
           ),
         );
       }
 
-      // Add the mint using the Rust API (with await!)
-      final result = await addMint(mintUrl: mintUrl);
+      // For onion addresses, show a dialog
+      if (isOnion && mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return Dialog(
+              backgroundColor: const Color(0xFF1A1A1A),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: Color(0xFF00FF00)),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Connecting to Tor network...',
+                      style: TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'This may take 30-60 seconds\nPlease wait...',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFFAAAAAA),
+                        fontFamily: 'Courier',
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      }
+
+      // Add the mint using WalletService (handles Tor configuration for .onion)
+      print('Adding mint with URL: $mintUrl');
+      final result = await WalletService.addMintService(mintUrl, 'sat');
       print('Add mint result: $result');
+      
+      // Close the Tor connection dialog if it was shown
+      if (isOnion && mounted) {
+        Navigator.of(context).pop();
+      }
 
       // Refresh wallet data after adding mint
       await _refreshWalletData();
@@ -907,6 +957,13 @@ class _MainAppPageState extends State<MainAppPage> {
       }
     } catch (e) {
       print('Failed to add mint: $e');
+      
+      // Close the Tor connection dialog if it was shown
+      final isOnion = mintUrl.contains('.onion');
+      if (isOnion && mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
