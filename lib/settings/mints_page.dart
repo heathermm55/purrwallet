@@ -479,7 +479,6 @@ class _MintsPageState extends State<MintsPage> {
       final isOnion = mintUrl.contains('.onion');
       
       // Use the processed URL from the dialog (already has correct format)
-      print('Adding mint with URL: $mintUrl');
       
       // For onion addresses, show a dialog
       if (isOnion && mounted) {
@@ -524,7 +523,6 @@ class _MintsPageState extends State<MintsPage> {
       
       // Add the mint using WalletService (handles Tor configuration for .onion)
       final result = await WalletService.addMintService(mintUrl, 'sat');
-      print('Add mint result: $result');
       
       // Close the Tor connection dialog if it was shown
       if (isOnion && mounted) {
@@ -549,7 +547,6 @@ class _MintsPageState extends State<MintsPage> {
         setState(() {}); // Refresh the list
       }
     } catch (e) {
-      print('Failed to add mint: $e');
       
       // Close the Tor connection dialog if it was shown
       final isOnion = mintUrl.contains('.onion');
@@ -578,11 +575,9 @@ class _MintsPageState extends State<MintsPage> {
   void _removeMint(String mintUrl) async {
     try {
       // Use the exact URL as stored (no processing needed)
-      print('Removing mint with URL: $mintUrl');
       
       // Remove the mint using the Rust API
       final result = removeMint(mintUrl: mintUrl);
-      print('Remove mint result: $result');
 
       // Show success message
       if (mounted) {
@@ -602,7 +597,6 @@ class _MintsPageState extends State<MintsPage> {
         setState(() {}); // Refresh the list
       }
     } catch (e) {
-      print('Failed to remove mint: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

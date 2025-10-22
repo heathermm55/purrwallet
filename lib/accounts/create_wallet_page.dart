@@ -119,7 +119,6 @@ class _CreateWalletPageState extends State<CreateWalletPage> {
       final databaseDir = documentsDir.path;
 
       final initResult = initMultiMintWallet(databaseDir: databaseDir, seedHex: _generatedSeedHex!);
-      print('MultiMintWallet init result: $initResult');
 
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/main');

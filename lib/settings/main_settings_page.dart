@@ -474,8 +474,6 @@ class SettingsPage extends StatelessWidget {
       // Save Tor mode (OnionOnly or Always) to SharedPreferences
       await prefs.setString('torMode', torMode);
       
-      print('Saving network settings to SharedPreferences:');
-      print('Tor mode: $torMode');
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

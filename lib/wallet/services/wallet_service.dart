@@ -43,7 +43,6 @@ class WalletService {
 
       // Initialize MultiMintWallet
       final initResult = initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
-      print('MultiMintWallet init result: $initResult');
 
       // Start global monitoring after wallet is initialized
       startGlobalMonitoring();
@@ -71,7 +70,6 @@ class WalletService {
 
       // Reinitialize MultiMintWallet with Tor config
       final initResult = reinitializeWithTorConfig(databaseDir: databaseDir, seedHex: seedHex);
-      print('MultiMintWallet reinit with Tor result: $initResult');
 
       return initResult;
     } catch (e) {
@@ -86,8 +84,6 @@ class WalletService {
       // Read Tor mode from SharedPreferences (same as settings page)
       final prefs = await SharedPreferences.getInstance();
       final torMode = prefs.getString('torMode') ?? 'OnionOnly';
-      
-      print('Loading Tor configuration from SharedPreferences: $torMode');
       
       // Convert string to TorPolicy enum
       TorPolicy policy;
@@ -116,7 +112,7 @@ class WalletService {
         bridges: null,
       );
     } catch (e) {
-      print('Failed to load Tor configuration: $e');
+      // Failed to load Tor configuration
     }
   }
 
@@ -125,7 +121,6 @@ class WalletService {
     try {
       return await _secureStorage.read(key: _seedKey);
     } catch (e) {
-      print('Failed to read stored seed: $e');
       return null;
     }
   }
@@ -138,7 +133,6 @@ class WalletService {
       
       return walletExists(mintUrl: mintUrl, databaseDir: databaseDir);
     } catch (e) {
-      print('Failed to check wallet existence: $e');
       return false;
     }
   }
@@ -188,21 +182,16 @@ class WalletService {
       
       // Check if this is a Tor initialization error for .onion addresses
       if (errorMsg.contains('Tor is not initialized') && mintUrl.contains('.onion')) {
-        print('Tor not ready for mint info: $errorMsg');
         // Check if Tor is ready
         try {
           final isReady = await isTorReady();
-          if (!isReady) {
-            print('Tor still connecting, mint info will be available once Tor is ready');
-          }
+          // Tor still connecting, mint info will be available once Tor is ready
         } catch (_) {
           // Ignore error checking status
         }
         // Return null instead of throwing, so UI can handle gracefully
         return null;
       }
-      
-      print('Failed to get wallet info: $e');
       return null;
     }
   }
@@ -215,7 +204,6 @@ class WalletService {
       final balance = allBalances[key] ?? 0;
       return BigInt.from(balance as int);
     } catch (e) {
-      print('Failed to get wallet balance: $e');
       return BigInt.zero;
     }
   }
@@ -229,7 +217,6 @@ class WalletService {
         return true;
       }).toList();
     } catch (e) {
-      print('Failed to get wallet transactions: $e');
       return [];
     }
   }
@@ -239,7 +226,7 @@ class WalletService {
     try {
       await _secureStorage.delete(key: _seedKey);
     } catch (e) {
-      print('Failed to clear wallet data: $e');
+      // Failed to clear wallet data
     }
   }
 
@@ -248,12 +235,10 @@ class WalletService {
   /// Start global monitoring (check all wallets every 1 minute)
   static void startGlobalMonitoring() {
     if (_isGlobalMonitoring) {
-      print('Global monitoring already running');
       return;
     }
 
     _isGlobalMonitoring = true;
-    print('Starting global monitoring (every 1 minute)');
 
     _globalMonitorTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       _checkAllMintQuotes();
@@ -274,7 +259,6 @@ class WalletService {
     _isGlobalMonitoring = false;
     _globalMonitorTimer?.cancel();
     _globalMonitorTimer = null;
-    print('Global monitoring stopped');
   }
 
   /// Start mint quote monitoring for specific mint URLs (check every 5 seconds for 5 minutes)
@@ -284,7 +268,6 @@ class WalletService {
 
     _monitoringMintUrls = List.from(mintUrls);
     _isMintQuoteMonitoring = true;
-    print('Starting mint quote monitoring for ${mintUrls.length} mints (every 5 seconds for 5 minutes)');
 
     int checkCount = 0;
     const maxChecks = 60; // 5 minutes = 60 * 5 seconds
@@ -312,7 +295,6 @@ class WalletService {
     _monitoringMeltQuoteIds = List.from(meltQuoteIds);
     _monitoringMeltMintUrl = mintUrl;
     _isMeltQuoteMonitoring = true;
-    print('Starting melt quote monitoring for ${meltQuoteIds.length} quotes (every 5 seconds for 3 minutes)');
 
     int checkCount = 0;
     const maxChecks = 60; // 5 minutes = 60 * 5 seconds
@@ -338,7 +320,6 @@ class WalletService {
     _mintQuoteMonitorTimer?.cancel();
     _mintQuoteMonitorTimer = null;
     _monitoringMintUrls.clear();
-    print('Mint quote monitoring stopped');
   }
 
   /// Stop melt quote monitoring
@@ -348,21 +329,16 @@ class WalletService {
     _meltQuoteMonitorTimer = null;
     _monitoringMeltQuoteIds.clear();
     _monitoringMeltMintUrl = null;
-    print('Melt quote monitoring stopped');
   }
 
   /// Check all melt quotes across all wallets
   static Future<void> _checkAllMeltQuotes() async {
     try {
-      print('Checking all melt quotes...');
-      
       // Check all melt quotes across all wallets
       final result = await checkAllMeltQuotes();
       final totalCompleted = int.parse(result);
 
       if (totalCompleted > 0) {
-        print('Global monitoring: Total $totalCompleted melt quotes completed');
-        
         // Notify UI about completed melt quotes
         if (onMeltedAmountReceived != null) {
           onMeltedAmountReceived!({
@@ -370,42 +346,30 @@ class WalletService {
             'source': 'global_monitoring',
           });
         }
-      } else {
-        print('Global monitoring: No melt quotes completed');
       }
 
     } catch (e) {
       // Silently ignore JSON parsing errors (quote not paid yet or expired)
-      if (!e.toString().contains('expected value at line 1 column 1')) {
-        print('Error in global melt monitoring: $e');
-      }
     }
   }
 
   /// Check all mint quotes across all wallets
   static Future<void> _checkAllMintQuotes() async {
     try {
-      print('Checking all mint quotes...');
-      
       // Use the new checkAllMintQuotes API
       final result = await checkAllMintQuotes();
       final totalMinted = int.parse(result['total_minted'] ?? '0');
 
       if (totalMinted > 0) {
-        print('Global monitoring: Successfully minted $totalMinted sats');
-        
         // Notify UI about minted amount
         if (onMintedAmountReceived != null) {
           onMintedAmountReceived!(result);
         }
-      } else {
-        print('Global monitoring: No payments received');
       }
 
     } catch (e) {
       // Silently ignore JSON parsing errors (quote not paid yet or expired)
       if (!e.toString().contains('expected value at line 1 column 1')) {
-        print('Error in global monitoring: $e');
       }
     }
   }
@@ -413,7 +377,6 @@ class WalletService {
   /// Check specific mint quotes for given mint URLs
   static Future<void> _checkSpecificMintQuotes(List<String> mintUrls) async {
     try {
-      print('Checking specific mint quotes for ${mintUrls.length} mints...');
       
       int totalMinted = 0;
       
@@ -427,18 +390,15 @@ class WalletService {
           final mintedAmount = int.parse(result);
           if (mintedAmount > 0) {
             totalMinted += mintedAmount;
-            print('Specific monitoring: Minted $mintedAmount sats from $mintUrl');
           }
         } catch (e) {
           // Silently ignore JSON parsing errors (quote not paid yet or expired)
           if (!e.toString().contains('expected value at line 1 column 1')) {
-            print('Error checking mint $mintUrl: $e');
           }
         }
       }
 
       if (totalMinted > 0) {
-        print('Specific monitoring: Total minted $totalMinted sats');
         
         // Notify UI about minted amount
         if (onMintedAmountReceived != null) {
@@ -448,13 +408,11 @@ class WalletService {
           });
         }
       } else {
-        print('Specific monitoring: No payments received');
       }
 
     } catch (e) {
       // Silently ignore JSON parsing errors (quote not paid yet or expired)
       if (!e.toString().contains('expected value at line 1 column 1')) {
-        print('Error in specific monitoring: $e');
       }
     }
   }
@@ -462,14 +420,12 @@ class WalletService {
   /// Check specific melt quotes for given quote IDs
   static Future<void> _checkSpecificMeltQuotes(List<String> meltQuoteIds, String mintUrl) async {
     try {
-      print('Checking specific melt quotes for ${meltQuoteIds.length} quotes...');
       
       // Check all melt quotes for this mint URL
       final result = await checkMeltQuoteStatus(mintUrl: mintUrl);
       final completedCount = int.parse(result);
       
       if (completedCount > 0) {
-        print('Specific monitoring: $completedCount melt quotes completed for $mintUrl');
         
         // Notify UI about completed melt quotes
         if (onMeltedAmountReceived != null) {
@@ -480,13 +436,11 @@ class WalletService {
           });
         }
       } else {
-        print('Specific monitoring: No melt quotes completed for $mintUrl');
       }
 
     } catch (e) {
       // Silently ignore JSON parsing errors (quote not paid yet or expired)
       if (!e.toString().contains('expected value at line 1 column 1')) {
-        print('Error in specific melt monitoring: $e');
       }
     }
   }

@@ -332,7 +332,6 @@ class _MintDetailPageState extends State<MintDetailPage> {
         isLoadingBalance = false;
       });
     } catch (e) {
-      print('Failed to load balance: $e');
       setState(() {
         isLoadingBalance = false;
       });
@@ -603,7 +602,6 @@ class _MintDetailPageState extends State<MintDetailPage> {
   void _confirmDeleteMint() async {
     try {
       final result = removeMint(mintUrl: widget.mintUrl);
-      print('Delete mint result: $result');
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -686,7 +684,6 @@ class _MintDetailPageState extends State<MintDetailPage> {
         customName = alias;
       });
     } catch (e) {
-      print('Failed to load mint settings: $e');
     }
   }
 
@@ -722,7 +719,6 @@ class _MintDetailPageState extends State<MintDetailPage> {
         }
       }
     } catch (e) {
-      print('Failed to save default mint: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -767,7 +763,6 @@ class _MintDetailPageState extends State<MintDetailPage> {
         );
       }
     } catch (e) {
-      print('Failed to save mint alias: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

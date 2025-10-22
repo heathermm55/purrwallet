@@ -97,7 +97,6 @@ class _ImportWalletPageState extends State<ImportWalletPage> {
       final databaseDir = documentsDir.path;
 
       final initResult = await initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
-      print('MultiMintWallet init result: $initResult');
 
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/main');

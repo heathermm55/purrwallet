@@ -30,7 +30,6 @@ class _MintsPageState extends State<MintsPage> {
         });
       }
     } catch (e) {
-      print('Error loading mints: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -333,9 +332,7 @@ class _MintsPageState extends State<MintsPage> {
       }
 
       // Add the mint using WalletService (handles Tor configuration for .onion)
-      print('Adding mint with URL: $mintUrl');
       final result = await WalletService.addMintService(mintUrl, 'sat');
-      print('Add mint result: $result');
       
       // Close the Tor connection dialog if it was shown
       if (isOnion && mounted) {
@@ -359,7 +356,6 @@ class _MintsPageState extends State<MintsPage> {
         );
       }
     } catch (e) {
-      print('Failed to add mint: $e');
       
       // Close the Tor connection dialog if it was shown
       final isOnion = mintUrl.contains('.onion');
@@ -569,7 +565,6 @@ class _MintsPageState extends State<MintsPage> {
 
   void _updateMintAlias(String mintUrl, String newAlias) {
     // TODO: Update mint alias in storage
-    print('Updating mint alias: $mintUrl -> $newAlias');
     // Show success message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -585,7 +580,6 @@ class _MintsPageState extends State<MintsPage> {
 
   void _deleteMint(String mintUrl) {
     // TODO: Delete mint from storage
-    print('Deleting mint: $mintUrl');
     // Show success message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

@@ -33,10 +33,7 @@ class _WalletStartPageState extends State<WalletStartPage> {
       final walletExistsFile = File('$databaseDir/multi_mint_wallet.db');
       final walletExists = await walletExistsFile.exists();
       
-      print('Database path: $databaseDir/multi_mint_wallet.db');
       final fileExists = walletExistsFile.existsSync();
-      print('Database file exists: $fileExists');
-      print('Database file size: ${fileExists ? walletExistsFile.lengthSync() : 'N/A'}');
       
       if (walletExists) {
         setState(() {
@@ -50,7 +47,6 @@ class _WalletStartPageState extends State<WalletStartPage> {
         if (seedHex != null) {
           // Initialize MultiMintWallet with existing seed
           final initResult = initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
-          print('MultiMintWallet init result: $initResult');
 
           // Mints are now empty by default - users can add their own mints
 
