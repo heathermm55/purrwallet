@@ -81,6 +81,7 @@ class WalletService {
 
   /// Load and apply Tor configuration from storage
   static Future<void> _loadAndApplyTorConfig() async {
+    return;
     try {
       // Read Tor mode from SharedPreferences (same as settings page)
       final prefs = await SharedPreferences.getInstance();

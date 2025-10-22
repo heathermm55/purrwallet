@@ -44,13 +44,14 @@ class SettingsPage extends StatelessWidget {
             icon: Icons.security,
             onTap: () => _showSecurityDialog(context),
           ),
-          _buildSettingsCard(
-            context,
-            title: 'Network',
-            subtitle: 'Tor settings',
-            icon: Icons.network_check,
-            onTap: () => _showNetworkDialog(context),
-          ),
+          // Temporarily disabled - Network/Tor settings
+          // _buildSettingsCard(
+          //   context,
+          //   title: 'Network',
+          //   subtitle: 'Tor settings',
+          //   icon: Icons.network_check,
+          //   onTap: () => _showNetworkDialog(context),
+          // ),
           _buildSettingsCard(
             context,
             title: 'About',
