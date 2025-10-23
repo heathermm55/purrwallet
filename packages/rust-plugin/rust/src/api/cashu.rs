@@ -92,8 +92,12 @@ pub struct TransactionInfo {
     pub id: String,
     pub direction: String, // "incoming" or "outgoing"
     pub amount: u64,
+    pub fee: u64,
     pub memo: Option<String>,
     pub timestamp: u64,
+    // Mint URL for this transaction
+    #[serde(rename = "mintUrl")]
+    pub mint_url: String,
     // Extended fields for transaction details
     #[serde(rename = "transactionType")]
     pub transaction_type: Option<String>,
@@ -398,8 +402,10 @@ pub async fn get_all_transactions() -> Result<Vec<TransactionInfo>, String> {
                 TransactionDirection::Outgoing => "outgoing",
             }.to_string(),
             amount: tx.amount.into(),
+            fee: tx.fee.into(),
             memo: tx.memo,
             timestamp: tx.timestamp,
+            mint_url: tx.mint_url.to_string(),
             // Extract transaction metadata
             transaction_type: tx.metadata.get("transaction_type").cloned(),
             lightning_invoice: tx.metadata.get("lightning_invoice").cloned(),
@@ -1155,4 +1161,38 @@ pub async fn init_multi_mint_wallet_with_tor(
 ) -> Result<String, String> {
     // Fallback to regular init without Tor
     init_multi_mint_wallet(database_dir, seed_hex).await
+}
+
+/// Decode a bolt11 lightning invoice to extract amount and other info
+pub async fn decode_bolt11_invoice(invoice: String) -> Result<String, String> {
+    use cdk::lightning_invoice::Bolt11Invoice;
+    
+    let bolt11 = Bolt11Invoice::from_str(&invoice)
+        .map_err(|e| format!("Failed to parse invoice: {}", e))?;
+    
+    // Extract amount in millisatoshis
+    let amount_msat = bolt11.amount_milli_satoshis()
+        .ok_or("Invoice does not contain an amount")?;
+    
+    // Convert to satoshis
+    let amount_sats = amount_msat / 1000;
+    
+    // Get description if available
+    let description = match bolt11.description() {
+        cdk::lightning_invoice::Bolt11InvoiceDescriptionRef::Direct(desc) => desc.to_string(),
+        cdk::lightning_invoice::Bolt11InvoiceDescriptionRef::Hash(_) => "Hash-based description".to_string(),
+    };
+    
+    // Get expiry time
+    let expiry = bolt11.expiry_time().as_secs();
+    
+    // Create result JSON
+    let result = serde_json::json!({
+        "amount_sats": amount_sats,
+        "amount_msat": amount_msat,
+        "description": description,
+        "expiry_secs": expiry,
+    });
+    
+    Ok(result.to_string())
 }

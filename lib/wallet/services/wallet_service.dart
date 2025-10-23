@@ -79,6 +79,7 @@ class WalletService {
 
   /// Load and apply Tor configuration from storage
   static Future<void> _loadAndApplyTorConfig() async {
+    await setTorConfig(policy: TorPolicy.never);
     return;
     try {
       // Read Tor mode from SharedPreferences (same as settings page)

@@ -205,6 +205,10 @@ Future<String> initMultiMintWalletWithTor({
   torConfig: torConfig,
 );
 
+/// Decode a bolt11 lightning invoice to extract amount and other info
+Future<String> decodeBolt11Invoice({required String invoice}) =>
+    RustLib.instance.api.crateApiCashuDecodeBolt11Invoice(invoice: invoice);
+
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<TorConfig>>
 abstract class TorConfig implements RustOpaqueInterface {}
 
@@ -324,8 +328,10 @@ class TransactionInfo {
   final String id;
   final String direction;
   final BigInt amount;
+  final BigInt fee;
   final String? memo;
   final BigInt timestamp;
+  final String mintUrl;
   final String? transactionType;
   final String? lightningInvoice;
   final String? ecashToken;
@@ -335,8 +341,10 @@ class TransactionInfo {
     required this.id,
     required this.direction,
     required this.amount,
+    required this.fee,
     this.memo,
     required this.timestamp,
+    required this.mintUrl,
     this.transactionType,
     this.lightningInvoice,
     this.ecashToken,
@@ -348,8 +356,10 @@ class TransactionInfo {
       id.hashCode ^
       direction.hashCode ^
       amount.hashCode ^
+      fee.hashCode ^
       memo.hashCode ^
       timestamp.hashCode ^
+      mintUrl.hashCode ^
       transactionType.hashCode ^
       lightningInvoice.hashCode ^
       ecashToken.hashCode ^
@@ -363,8 +373,10 @@ class TransactionInfo {
           id == other.id &&
           direction == other.direction &&
           amount == other.amount &&
+          fee == other.fee &&
           memo == other.memo &&
           timestamp == other.timestamp &&
+          mintUrl == other.mintUrl &&
           transactionType == other.transactionType &&
           lightningInvoice == other.lightningInvoice &&
           ecashToken == other.ecashToken &&

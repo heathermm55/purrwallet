@@ -58,8 +58,18 @@ Future<void> showTransactionDetailDialog({
                 _buildDetailRow('Amount', '${tx.amount} sats'),
                 const SizedBox(height: 12),
 
+                // Fee (if exists)
+                if (tx.fee > BigInt.zero) ...[
+                  _buildDetailRow('Fee', '${tx.fee} sats'),
+                  const SizedBox(height: 12),
+                ],
+
                 // Transaction Type
                 _buildDetailRow('Type', dialogTitle),
+                const SizedBox(height: 12),
+
+                // Mint URL
+                _buildDetailRow('Mint', tx.mintUrl),
                 const SizedBox(height: 12),
 
                 // Date

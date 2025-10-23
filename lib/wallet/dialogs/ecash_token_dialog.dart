@@ -53,7 +53,7 @@ Future<void> showEcashTokenDialog({
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: QrImageView(
-                        data: token.toUpperCase(),
+                        data: token,
                         version: QrVersions.auto,
                         size: 200.0,
                         backgroundColor: const Color(0xFF1A1A1A),

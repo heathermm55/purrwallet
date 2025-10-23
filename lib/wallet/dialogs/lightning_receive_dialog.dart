@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rust_plugin/src/rust/api/cashu.dart';
-import '../pages/mints_page.dart';
+import 'add_mint_dialog.dart';
 
 /// Show lightning receive dialog
 Future<void> showLightningReceiveDialog({
@@ -51,10 +51,10 @@ Future<void> showLightningReceiveDialog({
             TextButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const MintsPage()),
-                ).then((_) => onRefresh());
+                showAddMintDialog(
+                  context: context,
+                  onMintAdded: onRefresh,
+                );
               },
               child: const Text(
                 'Add Mint',

@@ -332,7 +332,7 @@ class _MintsPageState extends State<MintsPage> {
       }
 
       // Add the mint using WalletService (handles Tor configuration for .onion)
-      final result = await WalletService.addMintService(mintUrl, 'sat');
+      await WalletService.addMintService(mintUrl, 'sat');
       
       // Close the Tor connection dialog if it was shown
       if (isOnion && mounted) {
@@ -578,19 +578,42 @@ class _MintsPageState extends State<MintsPage> {
     );
   }
 
-  void _deleteMint(String mintUrl) {
-    // TODO: Delete mint from storage
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Mint deleted: $mintUrl',
-          style: const TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
-        ),
-        backgroundColor: const Color(0xFF1A1A1A),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+  void _deleteMint(String mintUrl) async {
+    try {
+      // Call the API to remove the mint
+      await removeMint(mintUrl: mintUrl);
+      
+      // Reload mints list
+      await _loadMints();
+      
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Mint deleted: $mintUrl',
+              style: const TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
+            ),
+            backgroundColor: const Color(0xFF1A1A1A),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to delete mint: $e',
+              style: const TextStyle(color: Color(0xFFFF6B6B), fontFamily: 'Courier'),
+            ),
+            backgroundColor: const Color(0xFF1A1A1A),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   @override
