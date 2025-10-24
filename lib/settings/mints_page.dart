@@ -206,8 +206,9 @@ class _MintsPageState extends State<MintsPage> {
                       fontSize: 12,
                     ),
                   ),
-                  onTap: () {
-                    Navigator.of(context).push(
+                  onTap: () async {
+                    // Navigate to mint detail page and wait for result
+                    final shouldRefresh = await Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => MintDetailPage(
                           mintUrl: mintUrl,
@@ -215,6 +216,11 @@ class _MintsPageState extends State<MintsPage> {
                         ),
                       ),
                     );
+                    
+                    // If mint was deleted, refresh the list
+                    if (shouldRefresh == true && mounted) {
+                      setState(() {});
+                    }
                   },
                 ),
               );

@@ -601,23 +601,39 @@ class _MintDetailPageState extends State<MintDetailPage> {
 
   void _confirmDeleteMint() async {
     try {
-      final result = removeMint(mintUrl: widget.mintUrl);
+      // Wait for the mint to be removed
+      await removeMint(mintUrl: widget.mintUrl);
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Mint deleted successfully'),
+            content: Text(
+              'Mint deleted successfully',
+              style: TextStyle(
+                color: Color(0xFF00FF00),
+                fontFamily: 'Courier',
+              ),
+            ),
             backgroundColor: Color(0xFF1A1A1A),
+            duration: Duration(seconds: 2),
           ),
         );
-        Navigator.of(context).pop(); // Return to mints list
+        // Return to mints list and refresh it
+        Navigator.of(context).pop(true); // Pass true to indicate refresh needed
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to delete mint: $e'),
+            content: Text(
+              'Failed to delete mint: $e',
+              style: const TextStyle(
+                color: Color(0xFFFF6B6B),
+                fontFamily: 'Courier',
+              ),
+            ),
             backgroundColor: const Color(0xFF1A1A1A),
+            duration: const Duration(seconds: 3),
           ),
         );
       }
