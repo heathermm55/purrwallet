@@ -155,13 +155,24 @@ class _MainAppPageState extends State<MainAppPage> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text(
-          'PURRWALLET',
-          style: TextStyle(
-            color: Color(0xFF00FF00),
-            fontFamily: 'Courier',
-            fontWeight: FontWeight.bold,
-          ),
+        title: Row(
+          children: [
+            // Logo image in AppBar
+            Image.asset(
+              'assets/images/logo.png',
+              width: 32,
+              height: 32,
+            ),
+            // const SizedBox(width: 12),
+            const Text(
+              'PURRWALLET',
+              style: TextStyle(
+                color: Color(0xFF00FF00),
+                fontFamily: 'Courier',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
         backgroundColor: const Color(0xFF1A1A1A),
         automaticallyImplyLeading: false,

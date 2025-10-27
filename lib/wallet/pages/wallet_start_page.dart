@@ -124,6 +124,13 @@ class _WalletStartPageState extends State<WalletStartPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Logo image
+            Image.asset(
+              'assets/images/logo.png',
+              width: 120,
+              height: 120,
+            ),
+            const SizedBox(height: 30),
             const CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF00)),
             ),
