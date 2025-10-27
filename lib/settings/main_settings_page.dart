@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:rust_plugin/src/rust/api/cashu.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'mints_page.dart';
 
 /// Main settings page with navigation to sub-settings
@@ -102,7 +103,11 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
-  void _showAboutDialog(BuildContext context) {
+  void _showAboutDialog(BuildContext context) async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    
+    if (!context.mounted) return;
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -116,11 +121,11 @@ class SettingsPage extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          content: const Column(
+          content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'PurrWallet',
                 style: TextStyle(
                   color: Color(0xFF00FF00),
@@ -129,17 +134,17 @@ class SettingsPage extends StatelessWidget {
                   fontSize: 18,
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
-                'Version: 1.0.0',
-                style: TextStyle(
+                'Version: ${packageInfo.version}+${packageInfo.buildNumber}',
+                style: const TextStyle(
                   color: Color(0xFF666666),
                   fontFamily: 'Courier',
                 ),
               ),
-              SizedBox(height: 8),
-              Text(
-                'A Cashu-based e-cash wallet for secure and private transactions.',
+              const SizedBox(height: 8),
+              const Text(
+                'Mobile Cashu wallet',
                 style: TextStyle(
                   color: Color(0xFF666666),
                   fontFamily: 'Courier',
