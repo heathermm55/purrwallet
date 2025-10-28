@@ -52,7 +52,7 @@ A Cashu ecash wallet built with Rust + Flutter, powered by [CDK (Cashu Developme
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/purrwallet.git
+git clone https://github.com/heathermm55/purrwallet.git
 cd purrwallet
 ```
 
