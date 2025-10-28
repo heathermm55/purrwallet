@@ -38,18 +38,6 @@ dependencies:
   rust_plugin:
     path: packages/rust-plugin
   
-  # Database (only for user management)
-  isar: ^3.1.0+1
-  isar_flutter_libs: ^3.1.0+1
-  
-  # Encryption and Security (for user private keys)
-  flutter_secure_storage: ^9.2.2
-  crypto: ^3.0.3
-  encrypt: ^5.0.3
-  
-  # UUID generation
-  uuid: ^4.5.1
-  
   # Path provider for file system access
   path_provider: ^2.1.4
   
@@ -62,7 +50,10 @@ dependencies:
   # Shared preferences for app settings
   shared_preferences: ^2.5.3
   
-  # Package info for app version
+  # Secure storage for sensitive data
+  flutter_secure_storage: ^9.2.2
+  
+  # # Package info for app version
   package_info_plus: ^8.1.0
 
 dev_dependencies:
@@ -75,10 +66,6 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
-  
-  # Isar code generation
-  isar_generator: ^3.1.0+1
-  build_runner: ^2.4.13
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
