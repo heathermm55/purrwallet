@@ -1,5 +1,5 @@
-<p align="center" style="background-color: black; padding: 20px;">
-  <img src="assets/images/logo.png" alt="PurrWallet Logo" width="150"/>
+<p align="center">
+  <img src="assets/images/logo-dark.png" alt="PurrWallet Logo" width="150"/>
 </p>
 
 <h1 align="center">PurrWallet</h1>
