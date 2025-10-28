@@ -28,9 +28,9 @@ class _LoginHomePageState extends State<LoginHomePage> {
       'icon': Icons.network_wifi,
     },
     {
-      'title': 'SECURE & FAST',
+      'title': 'SECURE & POWERFUL',
       'subtitle': 'Lightning Speed',
-      'description': 'Secure and lightning-fast transactions',
+      'description': 'Secure and powerful transactions',
       'icon': Icons.flash_on,
     },
     {

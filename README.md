@@ -4,9 +4,12 @@
 
 <h1 align="center">PurrWallet</h1>
 
-A cross-platform Cashu ecash wallet built with Rust + Flutter, powered by [CDK (Cashu Development Kit)](https://github.com/cashubtc/cdk).
+A Cashu ecash wallet built with Rust + Flutter, powered by [CDK (Cashu Development Kit)](https://github.com/cashubtc/cdk).
 
-**Local Wallet + NIP-60 Wallets** | **Privacy-Focused** | **IRC Style**
+- **Cross-platform**
+- **Local Wallet + NIP-60 Wallets**
+- **Local/Tor mint support**
+- **IRC Style**
 
 ## Roadmap
 
