@@ -1,4 +1,4 @@
-<p align="center">
+<p align="center" style="background-color: black; padding: 20px;">
   <img src="assets/images/logo.png" alt="PurrWallet Logo" width="150"/>
 </p>
 
