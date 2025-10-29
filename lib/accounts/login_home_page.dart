@@ -28,10 +28,10 @@ class _LoginHomePageState extends State<LoginHomePage> {
       'icon': Icons.network_wifi,
     },
     {
-      'title': 'SECURE & POWERFUL',
-      'subtitle': 'Lightning Speed',
-      'description': 'Secure and powerful transactions',
-      'icon': Icons.flash_on,
+      'title': 'DUAL WALLET',
+      'subtitle': 'Local & NIP-60',
+      'description': 'Support Local Wallet and NIP-60 Wallet',
+      'icon': Icons.account_balance_wallet,
     },
     {
       'title': 'IRC STYLE',
