@@ -12,4 +12,9 @@ class MainFlutterWindow: NSWindow {
 
     super.awakeFromNib()
   }
+  
+  // Hide window instead of closing when clicking the close button
+  override func performClose(_ sender: Any?) {
+    self.orderOut(sender)
+  }
 }
