@@ -1,8 +1,7 @@
 <p align="center">
   <img src="assets/images/logo-dark.png" alt="PurrWallet Logo" width="150"/>
 </p>
-
-<h1 align="center">PurrWallet</h1>
+<h1 align="center">PurrWallet - Powerful Cashu Wallet</h1>
 
 A Cashu ecash wallet built with Rust + Flutter, powered by [CDK (Cashu Development Kit)](https://github.com/cashubtc/cdk).
 

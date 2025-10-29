@@ -155,7 +155,7 @@ class SettingsPage extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Powerful Mobile Cashu wallet',
+                'Powerful Cashu wallet',
                 style: TextStyle(
                   color: Color(0xFF666666),
                   fontFamily: 'Courier',
