@@ -698,19 +698,31 @@ class _MainAppPageState extends State<MainAppPage> {
       return;
     }
 
-    // Show loading message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Creating ecash token for $amount sats...',
-          style: const TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
-        ),
-        backgroundColor: const Color(0xFF1A1A1A),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-
     try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1A1A1A),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF00)),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Creating ecash token for $amount sats...',
+                  style: const TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
       // Parse mint URL to remove unit suffix (e.g., "http://127.0.0.1:3338:sat" -> "http://127.0.0.1:3338")
       String parsedMintUrl = mintUrl;
       final parts = mintUrl.split(':');
@@ -725,8 +737,11 @@ class _MainAppPageState extends State<MainAppPage> {
         memo: memo.isNotEmpty ? memo : null,
       );
 
-      // Show success dialog with token
+      // Close loading dialog
       if (!mounted) return;
+      Navigator.of(context).pop();
+
+      // Show success dialog with token
       showEcashTokenDialog(
         context: context,
         token: token,
@@ -736,7 +751,10 @@ class _MainAppPageState extends State<MainAppPage> {
       // Refresh wallet data
       _refreshWalletData();
     } catch (e) {
+      // Close loading dialog
       if (!mounted) return;
+      Navigator.of(context).pop();
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

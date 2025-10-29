@@ -131,23 +131,67 @@ Future<void> showTransactionDetailDialog({
                   if (txType == 'ecash_send')
                     ElevatedButton.icon(
                       onPressed: () async {
-                        Navigator.of(dialogContext).pop(); // Close dialog first
+                        Navigator.of(dialogContext).pop(); // Close transaction detail dialog first
+                        
+                        // Show loading dialog
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (BuildContext loadingContext) {
+                            return AlertDialog(
+                              backgroundColor: const Color(0xFF1A1A1A),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF00)),
+                                  ),
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'Claiming token...',
+                                    style: TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                        
                         try {
                           final amount = await receiveTokens(token: tx.ecashToken!);
+                          
+                          // Close loading dialog
+                          if (context.mounted) {
+                            Navigator.of(context).pop();
+                          }
+                          
                           if (context.mounted) {
                             onRefresh();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Claimed $amount sats'),
+                                content: Text(
+                                  'Successfully claimed $amount sats!',
+                                  style: const TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
+                                ),
+                                backgroundColor: const Color(0xFF1A1A1A),
                                 duration: const Duration(seconds: 2),
                               ),
                             );
                           }
                         } catch (e) {
+                          // Close loading dialog
+                          if (context.mounted) {
+                            Navigator.of(context).pop();
+                          }
+                          
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Failed to claim token: $e'),
+                                content: Text(
+                                  'Failed to claim token: $e',
+                                  style: const TextStyle(color: Color(0xFFFF6B6B), fontFamily: 'Courier'),
+                                ),
+                                backgroundColor: const Color(0xFF1A1A1A),
                                 duration: const Duration(seconds: 3),
                               ),
                             );

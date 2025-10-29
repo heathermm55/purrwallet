@@ -149,23 +149,40 @@ Future<void> showEcashReceiveDialog({
                 return;
               }
 
-              // Show loading message
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Receiving ecash token...',
-                      style: TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
-                    ),
-                    backgroundColor: Color(0xFF1A1A1A),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              }
-
               try {
+                // Show loading dialog
+                if (context.mounted) {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (BuildContext loadingContext) {
+                      return AlertDialog(
+                        backgroundColor: const Color(0xFF1A1A1A),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF00)),
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              'Receiving ecash token...',
+                              style: TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                }
+
                 // Call receiveTokens API
                 final receivedAmount = await receiveTokens(token: token.trim());
+
+                // Close loading dialog
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
 
                 // Show success message
                 if (context.mounted) {
@@ -184,6 +201,11 @@ Future<void> showEcashReceiveDialog({
                   onSuccess();
                 }
               } catch (e) {
+                // Close loading dialog
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+                
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(

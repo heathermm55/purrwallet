@@ -241,22 +241,8 @@ Future<void> _addMint(
     // Check if this is an onion address
     final isOnion = mintUrl.contains('.onion');
 
-    // Show loading indicator
+    // Show loading dialog for all cases
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isOnion ? 'Initializing Tor connection...' : 'Adding mint...',
-            style: const TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
-          ),
-          backgroundColor: const Color(0xFF1A1A1A),
-          duration: Duration(seconds: isOnion ? 3 : 1),
-        ),
-      );
-    }
-
-    // For onion addresses, show a dialog
-    if (isOnion && context.mounted) {
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -272,18 +258,18 @@ Future<void> _addMint(
                     valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF00)),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Connecting via Tor...',
-                    style: TextStyle(
+                  Text(
+                    isOnion ? 'Connecting via Tor...' : 'Adding mint...',
+                    style: const TextStyle(
                       color: Color(0xFF00FF00),
                       fontFamily: 'Courier',
                       fontSize: 14,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'This may take a moment',
-                    style: TextStyle(
+                  Text(
+                    isOnion ? 'This may take a moment' : 'Please wait...',
+                    style: const TextStyle(
                       color: Color(0xFF666666),
                       fontFamily: 'Courier',
                       fontSize: 10,
@@ -300,8 +286,8 @@ Future<void> _addMint(
     // Call the Rust API to add the mint (alias is stored internally by the wallet)
     await addMint(mintUrl: mintUrl);
 
-    // Close loading dialog if shown
-    if (isOnion && context.mounted) {
+    // Close loading dialog
+    if (context.mounted) {
       Navigator.of(context).pop();
     }
 
@@ -322,12 +308,9 @@ Future<void> _addMint(
     // Call success callback
     onSuccess();
   } catch (e) {
-    // Close loading dialog if shown
+    // Close loading dialog
     if (context.mounted) {
-      // Try to pop the loading dialog
-      Navigator.of(context, rootNavigator: true).popUntil((route) {
-        return route.isFirst || !route.willHandlePopInternally;
-      });
+      Navigator.of(context).pop();
     }
 
     // Show error message

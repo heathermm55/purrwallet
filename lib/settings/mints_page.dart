@@ -484,10 +484,8 @@ class _MintsPageState extends State<MintsPage> {
       // Check if this is an onion address
       final isOnion = mintUrl.contains('.onion');
       
-      // Use the processed URL from the dialog (already has correct format)
-      
-      // For onion addresses, show a dialog
-      if (isOnion && mounted) {
+      // Show loading dialog for all cases
+      if (mounted) {
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -495,28 +493,29 @@ class _MintsPageState extends State<MintsPage> {
             return Dialog(
               backgroundColor: const Color(0xFF1A1A1A),
               child: Padding(
-                padding: const EdgeInsets.all(20.0),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const CircularProgressIndicator(color: Color(0xFF00FF00)),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Connecting to Tor network...',
-                      style: TextStyle(
+                    const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF00)),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      isOnion ? 'Connecting via Tor...' : 'Adding mint...',
+                      style: const TextStyle(
                         color: Color(0xFF00FF00),
                         fontFamily: 'Courier',
-                        fontSize: 16,
+                        fontSize: 14,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'This may take 30-60 seconds\nPlease wait...',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Color(0xFFAAAAAA),
+                    const SizedBox(height: 8),
+                    Text(
+                      isOnion ? 'This may take a moment' : 'Please wait...',
+                      style: const TextStyle(
+                        color: Color(0xFF666666),
                         fontFamily: 'Courier',
-                        fontSize: 12,
+                        fontSize: 10,
                       ),
                     ),
                   ],
@@ -530,8 +529,8 @@ class _MintsPageState extends State<MintsPage> {
       // Add the mint using WalletService (handles Tor configuration for .onion)
       final result = await WalletService.addMintService(mintUrl, 'sat');
       
-      // Close the Tor connection dialog if it was shown
-      if (isOnion && mounted) {
+      // Close loading dialog
+      if (mounted) {
         Navigator.of(context).pop();
       }
 
@@ -553,11 +552,9 @@ class _MintsPageState extends State<MintsPage> {
         setState(() {}); // Refresh the list
       }
     } catch (e) {
-      
-      // Close the Tor connection dialog if it was shown
-      final isOnion = mintUrl.contains('.onion');
-      if (isOnion && mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
+      // Close loading dialog
+      if (mounted) {
+        Navigator.of(context).pop();
       }
       
       if (mounted) {
