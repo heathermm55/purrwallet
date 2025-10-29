@@ -67,23 +67,26 @@ class AdaptiveScaffold extends StatelessWidget {
       return Scaffold(
         backgroundColor: backgroundColor ?? Colors.black,
         appBar: AppBar(
-          title: Row(
-            children: [
-              Image.asset(
-                'assets/images/logo.png',
-                width: 32,
-                height: 32,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                  fontWeight: FontWeight.bold,
+          title: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  'assets/images/logo.png',
+                  width: 32,
+                  height: 32,
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
           backgroundColor: const Color(0xFF1A1A1A),
           automaticallyImplyLeading: false,
@@ -119,23 +122,26 @@ class AdaptiveScaffold extends StatelessWidget {
       return Scaffold(
         backgroundColor: backgroundColor ?? Colors.black,
         appBar: AppBar(
-          title: Row(
-            children: [
-              Image.asset(
-                'assets/images/logo.png',
-                width: 32,
-                height: 32,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                  fontWeight: FontWeight.bold,
+          title: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  'assets/images/logo.png',
+                  width: 32,
+                  height: 32,
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
           backgroundColor: const Color(0xFF1A1A1A),
           automaticallyImplyLeading: false,
