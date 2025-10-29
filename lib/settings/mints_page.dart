@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:rust_plugin/src/rust/api/cashu.dart';
 import '../wallet/services/wallet_service.dart';
 import 'mint_detail_page.dart';
+import 'dart:io';
 
 /// Mints management page with add/remove functionality
 class MintsPage extends StatefulWidget {
@@ -260,9 +261,17 @@ class _MintsPageState extends State<MintsPage> {
     );
   }
 
-  void _showAddMintDialog() {
+  void _showAddMintDialog() async {
     final TextEditingController urlController = TextEditingController();
     String? urlError;
+
+    // Trigger network permission request when opening the dialog
+    // This will show iOS local network permission dialog on first launch
+    try {
+      await _requestNetworkPermission('https://mint.minibits.cash');
+    } catch (e) {
+      // Ignore errors - permission request is still triggered
+    }
 
     showDialog(
       context: context,
@@ -391,7 +400,7 @@ class _MintsPageState extends State<MintsPage> {
                       return;
                     }
 
-                    // Add the mint
+                    // Close the dialog and add the mint
                     Navigator.of(context).pop();
                     _addMint(processedUrl);
                   },
@@ -551,7 +560,7 @@ class _MintsPageState extends State<MintsPage> {
       }
       
       // Add the mint using WalletService (handles Tor configuration for .onion)
-      final result = await WalletService.addMintService(mintUrl, 'sat');
+      await WalletService.addMintService(mintUrl, 'sat');
       
       // Close loading dialog
       if (mounted) {
@@ -604,7 +613,7 @@ class _MintsPageState extends State<MintsPage> {
       // Use the exact URL as stored (no processing needed)
       
       // Remove the mint using the Rust API
-      final result = removeMint(mintUrl: mintUrl);
+      removeMint(mintUrl: mintUrl);
 
       // Show success message
       if (mounted) {
@@ -639,6 +648,25 @@ class _MintsPageState extends State<MintsPage> {
           ),
         );
       }
+    }
+  }
+
+  /// Request network permission by initiating a network connection
+  /// This triggers iOS local network permission dialog
+  Future<void> _requestNetworkPermission(String mintUrl) async {
+    try {
+      final uri = Uri.parse(mintUrl);
+      final host = uri.host;
+
+      // Attempt to lookup the address to trigger network permission
+      // This is a lightweight operation that triggers the permission dialog
+      await InternetAddress.lookup(host).timeout(
+        const Duration(seconds: 1),
+        onTimeout: () => [], // Timeout is OK, we just want to trigger permission
+      );
+    } catch (e) {
+      // Ignore errors - permission request is still triggered
+      // Even if the lookup fails, the permission dialog should have appeared
     }
   }
 }
