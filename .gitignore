@@ -132,3 +132,7 @@ secrets.json
 *.so
 *.zip
 *.tar.gz
+
+# Xcode project files (contains DEVELOPMENT_TEAM)
+*.pbxproj
+**/project.pbxproj
