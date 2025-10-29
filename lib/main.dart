@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:rust_plugin/src/rust/frb_generated.dart';
 import 'wallet/pages/wallet_start_page.dart';
 import 'main_app_page.dart';
+import 'main_app_page_adaptive.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -101,6 +102,7 @@ class PurrWalletApp extends StatelessWidget {
       home: const WalletStartPage(),
       routes: {
         '/main': (context) => const MainAppPage(),
+        '/main_adaptive': (context) => const MainAppPageAdaptive(),
       },
     );
   }

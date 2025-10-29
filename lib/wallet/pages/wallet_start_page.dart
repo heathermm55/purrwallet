@@ -4,7 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import '../../accounts/login_home_page.dart';
-import '../../main_app_page.dart';
+import '../../main_app_page_adaptive.dart';
 
 /// Wallet start page that checks for existing wallet and initializes it
 class WalletStartPage extends StatefulWidget {
@@ -33,8 +33,6 @@ class _WalletStartPageState extends State<WalletStartPage> {
       final walletExistsFile = File('$databaseDir/multi_mint_wallet.db');
       final walletExists = await walletExistsFile.exists();
       
-      final fileExists = walletExistsFile.existsSync();
-      
       if (walletExists) {
         setState(() {
           _status = 'Found existing wallet, loading...';
@@ -46,7 +44,7 @@ class _WalletStartPageState extends State<WalletStartPage> {
         
         if (seedHex != null) {
           // Initialize MultiMintWallet with existing seed
-          final initResult = initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
+          initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
 
           // Mints are now empty by default - users can add their own mints
 
@@ -59,7 +57,7 @@ class _WalletStartPageState extends State<WalletStartPage> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => const MainAppPage(),
+                builder: (context) => const MainAppPageAdaptive(),
               ),
             );
           }

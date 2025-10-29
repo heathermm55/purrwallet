@@ -5,7 +5,9 @@ import 'mint_detail_page.dart';
 
 /// Mints management page with add/remove functionality
 class MintsPage extends StatefulWidget {
-  const MintsPage({super.key});
+  final bool embedded;
+  
+  const MintsPage({super.key, this.embedded = false});
 
   @override
   State<MintsPage> createState() => _MintsPageState();
@@ -22,24 +24,7 @@ class _MintsPageState extends State<MintsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text(
-          'Mints',
-          style: TextStyle(
-            color: Color(0xFF00FF00),
-            fontFamily: 'Courier',
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: const Color(0xFF1A1A1A),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF00FF00)),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: FutureBuilder<List<String>>(
+    final body = FutureBuilder<List<String>>(
         future: Future(() => listMints()),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -227,7 +212,46 @@ class _MintsPageState extends State<MintsPage> {
             },
           );
         },
+      );
+    
+    // Return embedded version or full Scaffold
+    if (widget.embedded) {
+      // For embedded mode, wrap body with Stack to add floating action button
+      return Stack(
+        children: [
+          body,
+          // Floating action button at bottom right
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton(
+              onPressed: _showAddMintDialog,
+              backgroundColor: const Color(0xFF00FF00),
+              child: const Icon(Icons.add, color: Colors.black),
+            ),
+          ),
+        ],
+      );
+    }
+    
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: const Text(
+          'Mints',
+          style: TextStyle(
+            color: Color(0xFF00FF00),
+            fontFamily: 'Courier',
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: const Color(0xFF1A1A1A),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF00FF00)),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
       ),
+      body: body,
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddMintDialog,
         backgroundColor: const Color(0xFF00FF00),

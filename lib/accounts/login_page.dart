@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:rust_plugin/src/rust/api/nostr.dart';
 import 'services/auth_service.dart';
-import '../main_app_page.dart';
+import '../main_app_page_adaptive.dart';
 
 /// Login page
 class LoginPage extends StatefulWidget {
@@ -36,7 +35,7 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       // Login with private key (password auto-generated)
-      final user = await AuthService.loginWithPrivateKey(
+      await AuthService.loginWithPrivateKey(
         privateKey: privateKey,
         displayName: displayName.isNotEmpty ? displayName : null,
       );
@@ -45,7 +44,7 @@ class _LoginPageState extends State<LoginPage> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => const MainAppPage(),
+            builder: (context) => const MainAppPageAdaptive(),
           ),
         );
       }
@@ -174,7 +173,7 @@ class _LoginPageState extends State<LoginPage> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => const MainAppPage(),
+            builder: (context) => const MainAppPageAdaptive(),
           ),
         );
       }

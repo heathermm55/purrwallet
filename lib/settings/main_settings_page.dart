@@ -7,37 +7,28 @@ import 'mints_page.dart';
 
 /// Main settings page with navigation to sub-settings
 class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key});
+  final bool embedded;
+  
+  const SettingsPage({super.key, this.embedded = false});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text(
-          'Settings',
-          style: TextStyle(
-            color: Color(0xFF00FF00),
-            fontFamily: 'Courier',
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: const Color(0xFF1A1A1A),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildSettingsCard(
-            context,
-            title: 'Mints',
-            subtitle: 'Manage mint servers',
-            icon: Icons.account_balance_wallet,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const MintsPage()),
-              );
-            },
-          ),
+    final body = ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+          // Only show Mints option in standalone mode (not in split view)
+          if (!embedded)
+            _buildSettingsCard(
+              context,
+              title: 'Mints',
+              subtitle: 'Manage mint servers',
+              icon: Icons.account_balance_wallet,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const MintsPage()),
+                );
+              },
+            ),
           _buildSettingsCard(
             context,
             title: 'Security',
@@ -61,7 +52,27 @@ class SettingsPage extends StatelessWidget {
             onTap: () => _showAboutDialog(context),
           ),
         ],
+      );
+    
+    // Return embedded version or full Scaffold
+    if (embedded) {
+      return body;
+    }
+    
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: const Text(
+          'Settings',
+          style: TextStyle(
+            color: Color(0xFF00FF00),
+            fontFamily: 'Courier',
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: const Color(0xFF1A1A1A),
       ),
+      body: body,
     );
   }
 

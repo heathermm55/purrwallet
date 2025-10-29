@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rust_plugin/src/rust/api/nostr.dart';
 import 'services/auth_service.dart';
-import '../main_app_page.dart';
+import '../main_app_page_adaptive.dart';
 
 /// Create account page
 class CreateAccountPage extends StatefulWidget {
@@ -51,7 +51,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 
     try {
       // Create user account with auto-generated password
-      final user = await AuthService.loginWithPrivateKey(
+      await AuthService.loginWithPrivateKey(
         privateKey: _generatedKeys!.privateKey,
         displayName: displayName.isNotEmpty ? displayName : null,
       );
@@ -60,7 +60,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => const MainAppPage(),
+            builder: (context) => const MainAppPageAdaptive(),
           ),
         );
       }
