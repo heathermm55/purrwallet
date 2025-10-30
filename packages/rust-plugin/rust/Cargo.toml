@@ -25,8 +25,8 @@ bip39 = { version = "2.0", features = ["rand"] }
 log = "0.4"
 openssl = { version = "0.10", features = ["vendored"] }
 
-# Local dependencies - use local nostr and cdk
-nostr = { path = "../../../../nostr/crates/nostr", features = ["nip04", "nip44", "nip60"] }
-cdk = { path = "../../../../cdk/crates/cdk", default-features = false, features = ["wallet", "tor"] }
-cdk-sqlite = { path = "../../../../cdk/crates/cdk-sqlite", features = ["wallet"] }
-cashu = { path = "../../../../cdk/crates/cashu" }
+# Remote dependencies - use GitHub repositories
+nostr = { git = "https://github.com/heathermm55/nostr", features = ["nip04", "nip44", "nip60"] }
+cdk = { git = "https://github.com/heathermm55/cdk", default-features = false, features = ["wallet", "tor"] }
+cdk-sqlite = { git = "https://github.com/heathermm55/cdk", features = ["wallet"] }
+cashu = { git = "https://github.com/heathermm55/cdk" }
