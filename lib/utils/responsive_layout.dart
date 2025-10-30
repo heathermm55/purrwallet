@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 
 /// Responsive layout utility for adaptive UI
 class ResponsiveLayout {
@@ -24,6 +25,26 @@ class ResponsiveLayout {
 
   /// Check if split view should be enabled (tablet or desktop)
   static bool shouldUseSplitView(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final width = size.width;
+    final height = size.height;
+    
+    // For iOS devices, check if it's an iPad by looking at the shorter dimension
+    // iPad typically has a shorter dimension > 700 logical pixels
+    if (Platform.isIOS) {
+      final shortestSide = width < height ? width : height;
+      // iPad detection: shortest side > 700 (excludes all iPhones including Max models)
+      if (shortestSide > 700) {
+        return true;
+      }
+    }
+    
+    // For macOS and other platforms, use width-based detection
+    if (Platform.isMacOS || width >= tabletMaxWidth) {
+      return true;
+    }
+    
+    // Otherwise use standard mobile detection
     return !isMobile(context);
   }
 
