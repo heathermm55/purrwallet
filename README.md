@@ -8,9 +8,9 @@ PurrWallet is a powerful cashu ecash wallet built with Rust + Flutter, powered b
 - **Cross-platform**
 - **Local Wallet + NIP-60 Wallets**
 - **Local/Tor mint support**
-- **IRC Style**
+- **Terminal-inspired UI**
 
-## IRC Style
+## UI Style
 
 <p align="center">
   <img src="zapstore/assets/s1.png" alt="Screenshot 1" width="150"/>
