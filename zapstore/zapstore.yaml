@@ -1,0 +1,12 @@
+name: PurrWallet
+summary: PurrWallet is a powerful cashu ecash wallet built with Rust + Flutter, powered by CDK!
+repository: https://github.com/heathermm55/purrwallet
+icon: assets/icon.png
+images:
+  - assets/s1.png
+  - assets/s2.png
+  - assets/s3.png
+  - assets/s4.png
+  - assets/s5.png
+assets:
+  - .*.apk
