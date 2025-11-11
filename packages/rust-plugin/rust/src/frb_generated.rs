@@ -25,7 +25,6 @@
 
 // Section: imports
 
-use crate::api::cashu::*;
 use flutter_rust_bridge::for_generated::byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
 use flutter_rust_bridge::for_generated::{transform_result_dco, Lifetimeable, Lockable};
 use flutter_rust_bridge::{Handler, IntoIntoDart};
@@ -38,7 +37,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.7.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 822400330;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1297582975;
 
 // Section: executor
 
@@ -773,7 +772,7 @@ fn wire__crate__api__cashu__init_multi_mint_wallet_with_tor_impl(
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_database_dir = <String>::sse_decode(&mut deserializer);
             let api_seed_hex = <String>::sse_decode(&mut deserializer);
-            let api_tor_config = <Option<TorConfig>>::sse_decode(&mut deserializer);
+            let api__tor_config = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
                 transform_result_sse::<_, String>(
@@ -781,7 +780,7 @@ fn wire__crate__api__cashu__init_multi_mint_wallet_with_tor_impl(
                         let output_ok = crate::api::cashu::init_multi_mint_wallet_with_tor(
                             api_database_dir,
                             api_seed_hex,
-                            api_tor_config,
+                            api__tor_config,
                         )
                         .await?;
                         Ok(output_ok)
@@ -1489,57 +1488,12 @@ fn wire__crate__api__cashu__set_tor_config_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_policy = <crate::api::cashu::TorPolicy>::sse_decode(&mut deserializer);
+            let api__policy = <bool>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
                 transform_result_sse::<_, String>(
                     (move || async move {
-                        let output_ok = crate::api::cashu::set_tor_config(api_policy).await?;
-                        Ok(output_ok)
-                    })()
-                    .await,
-                )
-            }
-        },
-    )
-}
-fn wire__crate__api__cashu__set_tor_config_with_paths_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "set_tor_config_with_paths",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_policy = <crate::api::cashu::TorPolicy>::sse_decode(&mut deserializer);
-            let api_cache_dir = <Option<String>>::sse_decode(&mut deserializer);
-            let api_state_dir = <Option<String>>::sse_decode(&mut deserializer);
-            let api_bridges = <Option<Vec<String>>>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| async move {
-                transform_result_sse::<_, String>(
-                    (move || async move {
-                        let output_ok = crate::api::cashu::set_tor_config_with_paths(
-                            api_policy,
-                            api_cache_dir,
-                            api_state_dir,
-                            api_bridges,
-                        )
-                        .await?;
+                        let output_ok = crate::api::cashu::set_tor_config(api__policy).await?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -1768,23 +1722,7 @@ fn wire__crate__api__cashu__wallet_exists_impl(
     )
 }
 
-// Section: related_funcs
-
-flutter_rust_bridge::frb_generated_moi_arc_impl_value!(
-    flutter_rust_bridge::for_generated::RustAutoOpaqueInner<TorConfig>
-);
-
 // Section: dart2rust
-
-impl SseDecode for TorConfig {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <RustOpaqueMoi<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<TorConfig>,
-        >>::sse_decode(deserializer);
-        return flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(inner);
-    }
-}
 
 impl SseDecode for std::collections::HashMap<String, String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -1799,16 +1737,6 @@ impl SseDecode for std::collections::HashMap<String, u64> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <Vec<(String, u64)>>::sse_decode(deserializer);
         return inner.into_iter().collect();
-    }
-}
-
-impl SseDecode
-    for RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<TorConfig>>
-{
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <usize>::sse_decode(deserializer);
-        return decode_rust_opaque_moi(inner);
     }
 }
 
@@ -1852,13 +1780,6 @@ impl SseDecode for crate::api::cashu::ContactInfo {
             method: var_method,
             info: var_info,
         };
-    }
-}
-
-impl SseDecode for i32 {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        deserializer.cursor.read_i32::<NativeEndian>().unwrap()
     }
 }
 
@@ -2052,17 +1973,6 @@ impl SseDecode for Option<String> {
     }
 }
 
-impl SseDecode for Option<TorConfig> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<TorConfig>::sse_decode(deserializer));
-        } else {
-            return None;
-        }
-    }
-}
-
 impl SseDecode for Option<u64> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2113,19 +2023,6 @@ impl SseDecode for (String, u64) {
         let mut var_field0 = <String>::sse_decode(deserializer);
         let mut var_field1 = <u64>::sse_decode(deserializer);
         return (var_field0, var_field1);
-    }
-}
-
-impl SseDecode for crate::api::cashu::TorPolicy {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <i32>::sse_decode(deserializer);
-        return match inner {
-            0 => crate::api::cashu::TorPolicy::Never,
-            1 => crate::api::cashu::TorPolicy::OnionOnly,
-            2 => crate::api::cashu::TorPolicy::Always,
-            _ => unreachable!("Invalid variant for TorPolicy: {}", inner),
-        };
     }
 }
 
@@ -2186,13 +2083,6 @@ impl SseDecode for () {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {}
 }
 
-impl SseDecode for usize {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        deserializer.cursor.read_u64::<NativeEndian>().unwrap() as _
-    }
-}
-
 impl SseDecode for crate::api::cashu::WalletInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2206,6 +2096,13 @@ impl SseDecode for crate::api::cashu::WalletInfo {
             balance: var_balance,
             active_keyset_id: var_activeKeysetId,
         };
+    }
+}
+
+impl SseDecode for i32 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        deserializer.cursor.read_i32::<NativeEndian>().unwrap()
     }
 }
 
@@ -2270,21 +2167,15 @@ fn pde_ffi_dispatcher_primary_impl(
         39 => wire__crate__api__cashu__seed_hex_to_mnemonic_impl(port, ptr, rust_vec_len, data_len),
         40 => wire__crate__api__cashu__send_tokens_impl(port, ptr, rust_vec_len, data_len),
         41 => wire__crate__api__cashu__set_tor_config_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__cashu__set_tor_config_with_paths_impl(
+        43 => wire__crate__api__cashu__validate_mnemonic_phrase_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        44 => wire__crate__api__cashu__validate_mnemonic_phrase_impl(
-            port,
-            ptr,
-            rust_vec_len,
-            data_len,
-        ),
-        46 => wire__crate__api__cashu__verify_token_dleq_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__cashu__verify_token_p2pk_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__cashu__wallet_exists_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__cashu__verify_token_dleq_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__cashu__verify_token_p2pk_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__cashu__wallet_exists_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -2311,28 +2202,13 @@ fn pde_ffi_dispatcher_sync_impl(
         31 => wire__crate__api__nostr__nsec_to_secret_key_impl(ptr, rust_vec_len, data_len),
         34 => wire__crate__api__nostr__public_key_to_npub_impl(ptr, rust_vec_len, data_len),
         38 => wire__crate__api__nostr__secret_key_to_nsec_impl(ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__nostr__sign_event_impl(ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__nostr__verify_event_impl(ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__nostr__sign_event_impl(ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__nostr__verify_event_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
 
 // Section: rust2dart
-
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for FrbWrapper<TorConfig> {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, MoiArc<_>>(self.0)
-            .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for FrbWrapper<TorConfig> {}
-
-impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<TorConfig>> for TorConfig {
-    fn into_into_dart(self) -> FrbWrapper<TorConfig> {
-        self.into()
-    }
-}
 
 // Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::cashu::CashuProof {
@@ -2467,25 +2343,6 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::nostr::NostrKeysWithBech32>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::api::cashu::TorPolicy {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        match self {
-            Self::Never => 0.into_dart(),
-            Self::OnionOnly => 1.into_dart(),
-            Self::Always => 2.into_dart(),
-            _ => unreachable!(),
-        }
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::cashu::TorPolicy {}
-impl flutter_rust_bridge::IntoIntoDart<crate::api::cashu::TorPolicy>
-    for crate::api::cashu::TorPolicy
-{
-    fn into_into_dart(self) -> crate::api::cashu::TorPolicy {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::cashu::TransactionInfo {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -2536,13 +2393,6 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::cashu::WalletInfo>
     }
 }
 
-impl SseEncode for TorConfig {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<TorConfig>>>::sse_encode(flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, MoiArc<_>>(self), serializer);
-    }
-}
-
 impl SseEncode for std::collections::HashMap<String, String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -2554,17 +2404,6 @@ impl SseEncode for std::collections::HashMap<String, u64> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <Vec<(String, u64)>>::sse_encode(self.into_iter().collect(), serializer);
-    }
-}
-
-impl SseEncode
-    for RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<TorConfig>>
-{
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        let (ptr, size) = self.sse_encode_raw();
-        <usize>::sse_encode(ptr, serializer);
-        <i32>::sse_encode(size, serializer);
     }
 }
 
@@ -2597,13 +2436,6 @@ impl SseEncode for crate::api::cashu::ContactInfo {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <String>::sse_encode(self.method, serializer);
         <String>::sse_encode(self.info, serializer);
-    }
-}
-
-impl SseEncode for i32 {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        serializer.cursor.write_i32::<NativeEndian>(self).unwrap();
     }
 }
 
@@ -2745,16 +2577,6 @@ impl SseEncode for Option<String> {
     }
 }
 
-impl SseEncode for Option<TorConfig> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <TorConfig>::sse_encode(value, serializer);
-        }
-    }
-}
-
 impl SseEncode for Option<u64> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -2801,23 +2623,6 @@ impl SseEncode for (String, u64) {
     }
 }
 
-impl SseEncode for crate::api::cashu::TorPolicy {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <i32>::sse_encode(
-            match self {
-                crate::api::cashu::TorPolicy::Never => 0,
-                crate::api::cashu::TorPolicy::OnionOnly => 1,
-                crate::api::cashu::TorPolicy::Always => 2,
-                _ => {
-                    unimplemented!("");
-                }
-            },
-            serializer,
-        );
-    }
-}
-
 impl SseEncode for crate::api::cashu::TransactionInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -2861,16 +2666,6 @@ impl SseEncode for () {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {}
 }
 
-impl SseEncode for usize {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        serializer
-            .cursor
-            .write_u64::<NativeEndian>(self as _)
-            .unwrap();
-    }
-}
-
 impl SseEncode for crate::api::cashu::WalletInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -2878,6 +2673,13 @@ impl SseEncode for crate::api::cashu::WalletInfo {
         <String>::sse_encode(self.unit, serializer);
         <u64>::sse_encode(self.balance, serializer);
         <String>::sse_encode(self.active_keyset_id, serializer);
+    }
+}
+
+impl SseEncode for i32 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        serializer.cursor.write_i32::<NativeEndian>(self).unwrap();
     }
 }
 
@@ -2889,7 +2691,6 @@ mod io {
     // Section: imports
 
     use super::*;
-    use crate::api::cashu::*;
     use flutter_rust_bridge::for_generated::byteorder::{
         NativeEndian, ReadBytesExt, WriteBytesExt,
     };
@@ -2899,20 +2700,6 @@ mod io {
     // Section: boilerplate
 
     flutter_rust_bridge::frb_generated_boilerplate_io!();
-
-    #[no_mangle]
-    pub extern "C" fn frbgen_rust_plugin_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-        ptr: *const std::ffi::c_void,
-    ) {
-        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<TorConfig>>::increment_strong_count(ptr as _);
-    }
-
-    #[no_mangle]
-    pub extern "C" fn frbgen_rust_plugin_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-        ptr: *const std::ffi::c_void,
-    ) {
-        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<TorConfig>>::decrement_strong_count(ptr as _);
-    }
 }
 #[cfg(not(target_family = "wasm"))]
 pub use io::*;
@@ -2926,7 +2713,6 @@ mod web {
     // Section: imports
 
     use super::*;
-    use crate::api::cashu::*;
     use flutter_rust_bridge::for_generated::byteorder::{
         NativeEndian, ReadBytesExt, WriteBytesExt,
     };
@@ -2938,20 +2724,6 @@ mod web {
     // Section: boilerplate
 
     flutter_rust_bridge::frb_generated_boilerplate_web!();
-
-    #[wasm_bindgen]
-    pub fn rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-        ptr: *const std::ffi::c_void,
-    ) {
-        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<TorConfig>>::increment_strong_count(ptr as _);
-    }
-
-    #[wasm_bindgen]
-    pub fn rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-        ptr: *const std::ffi::c_void,
-    ) {
-        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<TorConfig>>::decrement_strong_count(ptr as _);
-    }
 }
 #[cfg(target_family = "wasm")]
 pub use web::*;

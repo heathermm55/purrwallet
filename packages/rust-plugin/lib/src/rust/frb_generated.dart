@@ -65,7 +65,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.7.0';
 
   @override
-  int get rustContentHash => 822400330;
+  int get rustContentHash => -1297582975;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -108,7 +108,7 @@ abstract class RustLibApi extends BaseApi {
 
   String crateApiNostrGetPublicKeyFromPrivate({required String privateKey});
 
-  Future<TorPolicy> crateApiCashuGetTorConfig();
+  Future<void> crateApiCashuGetTorConfig();
 
   Future<WalletInfo> crateApiCashuGetWalletInfo({required String mintUrl});
 
@@ -128,7 +128,7 @@ abstract class RustLibApi extends BaseApi {
   Future<String> crateApiCashuInitMultiMintWalletWithTor({
     required String databaseDir,
     required String seedHex,
-    TorConfig? torConfig,
+    String? torConfig,
   });
 
   Future<bool> crateApiCashuIsTorEnabled();
@@ -200,14 +200,7 @@ abstract class RustLibApi extends BaseApi {
     String? memo,
   });
 
-  Future<void> crateApiCashuSetTorConfig({required TorPolicy policy});
-
-  Future<void> crateApiCashuSetTorConfigWithPaths({
-    required TorPolicy policy,
-    String? cacheDir,
-    String? stateDir,
-    List<String>? bridges,
-  });
+  Future<void> crateApiCashuSetTorConfig({required bool policy});
 
   String crateApiNostrSignEvent({
     required String eventJson,
@@ -235,14 +228,6 @@ abstract class RustLibApi extends BaseApi {
     required String mintUrl,
     required String databaseDir,
   });
-
-  RustArcIncrementStrongCountFnType
-  get rust_arc_increment_strong_count_TorConfig;
-
-  RustArcDecrementStrongCountFnType
-  get rust_arc_decrement_strong_count_TorConfig;
-
-  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_TorConfigPtr;
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -649,7 +634,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<TorPolicy> crateApiCashuGetTorConfig() {
+  Future<void> crateApiCashuGetTorConfig() {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -662,7 +647,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_tor_policy,
+          decodeSuccessData: sse_decode_unit,
           decodeErrorData: sse_decode_String,
         ),
         constMeta: kCrateApiCashuGetTorConfigConstMeta,
@@ -825,7 +810,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Future<String> crateApiCashuInitMultiMintWalletWithTor({
     required String databaseDir,
     required String seedHex,
-    TorConfig? torConfig,
+    String? torConfig,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -833,10 +818,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(databaseDir, serializer);
           sse_encode_String(seedHex, serializer);
-          sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-            torConfig,
-            serializer,
-          );
+          sse_encode_opt_String(torConfig, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -1423,12 +1405,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
-  Future<void> crateApiCashuSetTorConfig({required TorPolicy policy}) {
+  Future<void> crateApiCashuSetTorConfig({required bool policy}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_tor_policy(policy, serializer);
+          sse_encode_bool(policy, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -1451,45 +1433,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "set_tor_config", argNames: ["policy"]);
 
   @override
-  Future<void> crateApiCashuSetTorConfigWithPaths({
-    required TorPolicy policy,
-    String? cacheDir,
-    String? stateDir,
-    List<String>? bridges,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_tor_policy(policy, serializer);
-          sse_encode_opt_String(cacheDir, serializer);
-          sse_encode_opt_String(stateDir, serializer);
-          sse_encode_opt_list_String(bridges, serializer);
-          pdeCallFfi(
-            generalizedFrbRustBinding,
-            serializer,
-            funcId: 42,
-            port: port_,
-          );
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: sse_decode_String,
-        ),
-        constMeta: kCrateApiCashuSetTorConfigWithPathsConstMeta,
-        argValues: [policy, cacheDir, stateDir, bridges],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiCashuSetTorConfigWithPathsConstMeta =>
-      const TaskConstMeta(
-        debugName: "set_tor_config_with_paths",
-        argNames: ["policy", "cacheDir", "stateDir", "bridges"],
-      );
-
-  @override
   String crateApiNostrSignEvent({
     required String eventJson,
     required String privateKey,
@@ -1500,7 +1443,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(eventJson, serializer);
           sse_encode_String(privateKey, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 43)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 42)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -1530,7 +1473,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 44,
+            funcId: 43,
             port: port_,
           );
         },
@@ -1558,7 +1501,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_box_autoadd_nostr_event(event, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 45)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 44)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -1588,7 +1531,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 46,
+            funcId: 45,
             port: port_,
           );
         },
@@ -1625,7 +1568,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 47,
+            funcId: 46,
             port: port_,
           );
         },
@@ -1660,7 +1603,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 48,
+            funcId: 47,
             port: port_,
           );
         },
@@ -1679,23 +1622,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     debugName: "wallet_exists",
     argNames: ["mintUrl", "databaseDir"],
   );
-
-  RustArcIncrementStrongCountFnType
-  get rust_arc_increment_strong_count_TorConfig =>
-      wire.rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig;
-
-  RustArcDecrementStrongCountFnType
-  get rust_arc_decrement_strong_count_TorConfig =>
-      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig;
-
-  @protected
-  TorConfig
-  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return TorConfigImpl.frbInternalDcoDecode(raw as List<dynamic>);
-  }
 
   @protected
   Map<String, String> dco_decode_Map_String_String(dynamic raw) {
@@ -1716,15 +1642,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  TorConfig
-  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return TorConfigImpl.frbInternalDcoDecode(raw as List<dynamic>);
-  }
-
-  @protected
   String dco_decode_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as String;
@@ -1734,17 +1651,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   bool dco_decode_bool(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as bool;
-  }
-
-  @protected
-  TorConfig
-  dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-      raw,
-    );
   }
 
   @protected
@@ -1783,12 +1689,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       method: dco_decode_String(arr[0]),
       info: dco_decode_String(arr[1]),
     );
-  }
-
-  @protected
-  int dco_decode_i_32(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw as int;
   }
 
   @protected
@@ -1910,19 +1810,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  TorConfig?
-  dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null
-        ? null
-        : dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-          raw,
-        );
-  }
-
-  @protected
   BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_u_64(raw);
@@ -1958,12 +1845,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       throw Exception('Expected 2 elements, got ${arr.length}');
     }
     return (dco_decode_String(arr[0]), dco_decode_u_64(arr[1]));
-  }
-
-  @protected
-  TorPolicy dco_decode_tor_policy(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return TorPolicy.values[raw as int];
   }
 
   @protected
@@ -2012,12 +1893,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  BigInt dco_decode_usize(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dcoDecodeU64(raw);
-  }
-
-  @protected
   WalletInfo dco_decode_wallet_info(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -2028,18 +1903,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       unit: dco_decode_String(arr[1]),
       balance: dco_decode_u_64(arr[2]),
       activeKeysetId: dco_decode_String(arr[3]),
-    );
-  }
-
-  @protected
-  TorConfig
-  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return TorConfigImpl.frbInternalSseDecode(
-      sse_decode_usize(deserializer),
-      sse_decode_i_32(deserializer),
     );
   }
 
@@ -2060,18 +1923,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  TorConfig
-  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return TorConfigImpl.frbInternalSseDecode(
-      sse_decode_usize(deserializer),
-      sse_decode_i_32(deserializer),
-    );
-  }
-
-  @protected
   String sse_decode_String(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_list_prim_u_8_strict(deserializer);
@@ -2082,17 +1933,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   bool sse_decode_bool(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getUint8() != 0;
-  }
-
-  @protected
-  TorConfig
-  sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-      deserializer,
-    ));
   }
 
   @protected
@@ -2128,12 +1968,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_method = sse_decode_String(deserializer);
     var var_info = sse_decode_String(deserializer);
     return ContactInfo(method: var_method, info: var_info);
-  }
-
-  @protected
-  int sse_decode_i_32(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getInt32();
   }
 
   @protected
@@ -2320,22 +2154,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  TorConfig?
-  sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    if (sse_decode_bool(deserializer)) {
-      return (sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-        deserializer,
-      ));
-    } else {
-      return null;
-    }
-  }
-
-  @protected
   BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -2386,13 +2204,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_field0 = sse_decode_String(deserializer);
     var var_field1 = sse_decode_u_64(deserializer);
     return (var_field0, var_field1);
-  }
-
-  @protected
-  TorPolicy sse_decode_tor_policy(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_i_32(deserializer);
-    return TorPolicy.values[inner];
   }
 
   @protected
@@ -2448,12 +2259,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  BigInt sse_decode_usize(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getBigUint64();
-  }
-
-  @protected
   WalletInfo sse_decode_wallet_info(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_mintUrl = sse_decode_String(deserializer);
@@ -2469,16 +2274,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void
-  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-    TorConfig self,
-    SseSerializer serializer,
-  ) {
+  int sse_decode_i_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_usize(
-      (self as TorConfigImpl).frbInternalSseEncode(move: true),
-      serializer,
-    );
+    return deserializer.buffer.getInt32();
   }
 
   @protected
@@ -2506,19 +2304,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void
-  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-    TorConfig self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_usize(
-      (self as TorConfigImpl).frbInternalSseEncode(move: null),
-      serializer,
-    );
-  }
-
-  @protected
   void sse_encode_String(String self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_list_prim_u_8_strict(utf8.encoder.convert(self), serializer);
@@ -2528,19 +2313,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_bool(bool self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint8(self ? 1 : 0);
-  }
-
-  @protected
-  void
-  sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-    TorConfig self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-      self,
-      serializer,
-    );
   }
 
   @protected
@@ -2572,12 +2344,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.method, serializer);
     sse_encode_String(self.info, serializer);
-  }
-
-  @protected
-  void sse_encode_i_32(int self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putInt32(self);
   }
 
   @protected
@@ -2729,23 +2495,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void
-  sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-    TorConfig? self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    sse_encode_bool(self != null, serializer);
-    if (self != null) {
-      sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTorConfig(
-        self,
-        serializer,
-      );
-    }
-  }
-
-  @protected
   void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -2802,12 +2551,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_tor_policy(TorPolicy self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.index, serializer);
-  }
-
-  @protected
   void sse_encode_transaction_info(
     TransactionInfo self,
     SseSerializer serializer,
@@ -2850,12 +2593,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_usize(BigInt self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putBigUint64(self);
-  }
-
-  @protected
   void sse_encode_wallet_info(WalletInfo self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.mintUrl, serializer);
@@ -2863,24 +2600,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_u_64(self.balance, serializer);
     sse_encode_String(self.activeKeysetId, serializer);
   }
-}
 
-@sealed
-class TorConfigImpl extends RustOpaque implements TorConfig {
-  // Not to be used by end users
-  TorConfigImpl.frbInternalDcoDecode(List<dynamic> wire)
-    : super.frbInternalDcoDecode(wire, _kStaticData);
-
-  // Not to be used by end users
-  TorConfigImpl.frbInternalSseDecode(BigInt ptr, int externalSizeOnNative)
-    : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
-
-  static final _kStaticData = RustArcStaticData(
-    rustArcIncrementStrongCount:
-        RustLib.instance.api.rust_arc_increment_strong_count_TorConfig,
-    rustArcDecrementStrongCount:
-        RustLib.instance.api.rust_arc_decrement_strong_count_TorConfig,
-    rustArcDecrementStrongCountPtr:
-        RustLib.instance.api.rust_arc_decrement_strong_count_TorConfigPtr,
-  );
+  @protected
+  void sse_encode_i_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putInt32(self);
+  }
 }

@@ -7,7 +7,7 @@ import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These functions are ignored because they are not marked as `pub`: `extract_supported_nuts`, `get_database_path`, `load_wallets_from_database`, `parse_seed_from_hex`, `wallet_database_exists`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `try_from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `try_from`
 
 /// Initialize MultiMintWallet
 Future<String> initMultiMintWallet({
@@ -158,34 +158,23 @@ Future<bool> validateMnemonicPhrase({required String mnemonicPhrase}) => RustLib
     .api
     .crateApiCashuValidateMnemonicPhrase(mnemonicPhrase: mnemonicPhrase);
 
-/// Set Tor configuration
-Future<void> setTorConfig({required TorPolicy policy}) =>
+/// Set Tor configuration (deprecated - Tor is now auto-detected for .onion addresses)
+/// This function is kept for FFI compatibility but does nothing.
+/// The policy parameter is ignored.
+Future<void> setTorConfig({required bool policy}) =>
     RustLib.instance.api.crateApiCashuSetTorConfig(policy: policy);
 
-/// Set Tor configuration with custom storage paths
-Future<void> setTorConfigWithPaths({
-  required TorPolicy policy,
-  String? cacheDir,
-  String? stateDir,
-  List<String>? bridges,
-}) => RustLib.instance.api.crateApiCashuSetTorConfigWithPaths(
-  policy: policy,
-  cacheDir: cacheDir,
-  stateDir: stateDir,
-  bridges: bridges,
-);
+/// Get current Tor configuration (deprecated)
+Future<void> getTorConfig() => RustLib.instance.api.crateApiCashuGetTorConfig();
 
-/// Get current Tor configuration
-Future<TorPolicy> getTorConfig() =>
-    RustLib.instance.api.crateApiCashuGetTorConfig();
-
-/// Check if Tor is currently enabled
+/// Check if Tor is currently enabled (deprecated - always returns true if tor feature enabled)
 Future<bool> isTorEnabled() => RustLib.instance.api.crateApiCashuIsTorEnabled();
 
-/// Check if Tor is ready (fully bootstrapped and can make connections)
+/// Check if Tor is ready (deprecated - not available in new implementation)
 Future<bool> isTorReady() => RustLib.instance.api.crateApiCashuIsTorReady();
 
-/// Reinitialize MultiMintWallet with current Tor configuration
+/// Reinitialize MultiMintWallet with current Tor configuration (deprecated)
+/// Tor is now automatically used for .onion addresses, no reinitialization needed.
 Future<String> reinitializeWithTorConfig({
   required String databaseDir,
   required String seedHex,
@@ -194,11 +183,13 @@ Future<String> reinitializeWithTorConfig({
   seedHex: seedHex,
 );
 
-/// Initialize MultiMintWallet with Tor configuration
+/// Initialize MultiMintWallet with Tor configuration (deprecated)
+/// Tor is now automatically used for .onion addresses, no special initialization needed.
+/// The tor_config parameter is ignored.
 Future<String> initMultiMintWalletWithTor({
   required String databaseDir,
   required String seedHex,
-  TorConfig? torConfig,
+  String? torConfig,
 }) => RustLib.instance.api.crateApiCashuInitMultiMintWalletWithTor(
   databaseDir: databaseDir,
   seedHex: seedHex,
@@ -208,9 +199,6 @@ Future<String> initMultiMintWalletWithTor({
 /// Decode a bolt11 lightning invoice to extract amount and other info
 Future<String> decodeBolt11Invoice({required String invoice}) =>
     RustLib.instance.api.crateApiCashuDecodeBolt11Invoice(invoice: invoice);
-
-// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<TorConfig>>
-abstract class TorConfig implements RustOpaqueInterface {}
 
 /// Cashu proof structure for FFI
 class CashuProof {
@@ -319,9 +307,6 @@ class MintInfo {
           publicKey == other.publicKey &&
           additionalInfo == other.additionalInfo;
 }
-
-/// Tor usage policy for FFI
-enum TorPolicy { never, onionOnly, always }
 
 /// Transaction information structure
 class TransactionInfo {

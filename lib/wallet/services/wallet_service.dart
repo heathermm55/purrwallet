@@ -78,43 +78,12 @@ class WalletService {
   }
 
   /// Load and apply Tor configuration from storage
+  /// Note: Tor configuration API has been removed. 
+  /// New implementation automatically uses Tor for .onion addresses.
   static Future<void> _loadAndApplyTorConfig() async {
-    await setTorConfig(policy: TorPolicy.never);
+    // Tor is now automatically used for .onion addresses when tor feature is enabled
+    // No manual configuration needed
     return;
-    try {
-      // Read Tor mode from SharedPreferences (same as settings page)
-      final prefs = await SharedPreferences.getInstance();
-      final torMode = prefs.getString('torMode') ?? 'OnionOnly';
-      
-      // Convert string to TorPolicy enum
-      TorPolicy policy;
-      switch (torMode) {
-        case 'Always':
-          policy = TorPolicy.always;
-          break;
-        case 'Never':
-          policy = TorPolicy.never;
-          break;
-        case 'OnionOnly':
-        default:
-          policy = TorPolicy.onionOnly;
-      }
-      
-      // Get application documents directory for Tor storage
-      final documentsDir = await getApplicationDocumentsDirectory();
-      final torCacheDir = '${documentsDir.path}/tor_cache';
-      final torStateDir = '${documentsDir.path}/tor_state';
-      
-      // Apply Tor configuration with storage paths and bridges
-      await setTorConfigWithPaths(
-        policy: policy,
-        cacheDir: torCacheDir,
-        stateDir: torStateDir,
-        bridges: null,
-      );
-    } catch (e) {
-      // Failed to load Tor configuration
-    }
   }
 
   /// Get stored seed hex

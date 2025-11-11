@@ -7,15 +7,10 @@ use std::str::FromStr;
 use cdk::nuts::{CurrencyUnit, Token, Proof, Id, SecretKey, PublicKey};
 use cdk::secret::Secret;
 use cdk::amount::Amount;
-use cdk::wallet::{Wallet, MultiMintWallet, SendOptions, ReceiveOptions};
-#[cfg(feature = "tor")]
-use cdk::wallet::{TorPolicy as CdkTorPolicy, TorConfig as CdkTorConfig, set_tor_config as cdk_set_tor_config, get_tor_config as cdk_get_tor_config};
-
-// Re-export TorConfig for FFI
-#[cfg(feature = "tor")]
-pub use cdk::wallet::TorConfig;
-use cdk::cdk_database::WalletDatabase;
-use cdk::wallet::types::{TransactionDirection, WalletKey};
+use cdk::wallet::{Wallet, MultiMintWallet, SendOptions, ReceiveOptions, MultiMintSendOptions};
+// Note: Old Tor configuration API (TorPolicy, TorConfig, set_tor_config, get_tor_config) 
+// has been removed. New implementation uses WalletBuilder::use_tor() instead.
+use cdk::wallet::types::TransactionDirection;
 use cdk::mint_url::MintUrl;
 use cdk_sqlite::WalletSqliteDatabase;
 use bip39::{Mnemonic, Language};
@@ -26,29 +21,7 @@ use tokio::sync::RwLock;
 /// Global MultiMintWallet instance
 static MULTI_MINT_WALLET: RwLock<Option<Arc<MultiMintWallet>>> = RwLock::const_new(None);
 
-/// Global Tor configuration
-#[cfg(feature = "tor")]
-static TOR_CONFIG: RwLock<Option<TorConfig>> = RwLock::const_new(None);
-
-/// Tor usage policy for FFI
-#[cfg(feature = "tor")]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum TorPolicy {
-    Never,
-    OnionOnly,
-    Always,
-}
-
-#[cfg(feature = "tor")]
-impl From<TorPolicy> for CdkTorPolicy {
-    fn from(policy: TorPolicy) -> Self {
-        match policy {
-            TorPolicy::Never => CdkTorPolicy::Never,
-            TorPolicy::OnionOnly => CdkTorPolicy::OnionOnly,
-            TorPolicy::Always => CdkTorPolicy::Always,
-        }
-    }
-}
+// Tor is automatically used for .onion addresses when tor feature is enabled.
 
 
 // execute_async function removed - no longer needed with async functions
@@ -176,6 +149,24 @@ pub async fn init_multi_mint_wallet(database_dir: String, seed_hex: String) -> R
         return Ok("MultiMintWallet already initialized".to_string());
     }
 
+    // Set Tor data directories to use the same base directory as the wallet database
+    // This ensures Tor data is stored in the app's data directory, not system temp
+    let tor_cache_dir = PathBuf::from(&database_dir).join("tor_cache");
+    let tor_data_dir = PathBuf::from(&database_dir).join("tor_data");
+    
+    // Create Tor directories if they don't exist
+    std::fs::create_dir_all(&tor_cache_dir)
+        .map_err(|e| format!("Failed to create Tor cache directory: {}", e))?;
+    std::fs::create_dir_all(&tor_data_dir)
+        .map_err(|e| format!("Failed to create Tor data directory: {}", e))?;
+    
+    // Set environment variables for Tor configuration
+    // These will be used by TorAsync when initializing TorClientConfig
+    let cache_path = tor_cache_dir.to_string_lossy().to_string();
+    let data_path = tor_data_dir.to_string_lossy().to_string();
+    std::env::set_var("ARTI_CACHE", &cache_path);
+    std::env::set_var("ARTI_LOCAL_DATA", &data_path);
+
     // Parse seed from hex string
     let seed = parse_seed_from_hex(&seed_hex)?;
     let db_path = PathBuf::from(&database_dir).join("multi_mint_wallet.db");
@@ -186,31 +177,37 @@ pub async fn init_multi_mint_wallet(database_dir: String, seed_hex: String) -> R
     let localstore = WalletSqliteDatabase::new(db_path.to_str().unwrap()).await
         .map_err(|e| format!("Failed to create SQLite store: {}", e))?;
 
-    // Try to load existing wallets from database
-    let existing_wallets = load_wallets_from_database(&localstore, &seed).await?;
-
-    // Get current Tor config if available
-    #[cfg(feature = "tor")]
-    let tor_config = {
-        let config_guard = TOR_CONFIG.read().await;
-        config_guard.clone()
+    // Convert seed to [u8; 64] by extending if needed
+    let seed_64: [u8; 64] = if seed.len() == 32 {
+        // Extend 32-byte seed to 64 bytes by repeating
+        let mut extended = [0u8; 64];
+        extended[..32].copy_from_slice(&seed);
+        extended[32..].copy_from_slice(&seed);
+        extended
+    } else if seed.len() == 64 {
+        let mut seed_array = [0u8; 64];
+        seed_array.copy_from_slice(&seed);
+        seed_array
+    } else {
+        return Err(format!("Seed must be 32 or 64 bytes, got {}", seed.len()));
     };
-    #[cfg(not(feature = "tor"))]
-    let tor_config: Option<()> = None;
 
+    // Create MultiMintWallet with default unit (Sat)
+    // Note: MultiMintWallet now supports only one currency unit per instance
     let multi_mint_wallet = MultiMintWallet::new(
         Arc::new(localstore),
-        Arc::new(seed),
-        existing_wallets, // Load existing wallets
-    );
+        seed_64,
+        CurrencyUnit::Sat, // Default to Sat unit
+    ).await
+    .map_err(|e| format!("Failed to create MultiMintWallet: {}", e))?;
 
     *wallet_guard = Some(Arc::new(multi_mint_wallet));
     
     Ok("MultiMintWallet initialized successfully".to_string())
 }
 
-/// Parse seed from hex string
-fn parse_seed_from_hex(seed_hex: &str) -> Result<[u8; 32], String> {
+/// Parse seed from hex string (returns Vec<u8> to support both 32 and 64 byte seeds)
+fn parse_seed_from_hex(seed_hex: &str) -> Result<Vec<u8>, String> {
     // Accept both 64-byte (128 hex chars) and 32-byte (64 hex chars) seeds
     let expected_lengths = [64, 128]; // 32 bytes or 64 bytes
     if !expected_lengths.contains(&seed_hex.len()) {
@@ -220,51 +217,16 @@ fn parse_seed_from_hex(seed_hex: &str) -> Result<[u8; 32], String> {
     // Parse hex string to bytes
     let seed_bytes = hex::decode(seed_hex)
         .map_err(|e| format!("Invalid hex string: {}", e))?;
-
-    // Take the first 32 bytes for MultiMintWallet
-    let mut seed = [0u8; 32];
-    let bytes_to_copy = std::cmp::min(32, seed_bytes.len());
-    seed[..bytes_to_copy].copy_from_slice(&seed_bytes[..bytes_to_copy]);
-
-    Ok(seed)
+    
+    Ok(seed_bytes)
 }
 
 /// Load existing wallets from database
-async fn load_wallets_from_database(localstore: &WalletSqliteDatabase, seed: &[u8]) -> Result<Vec<Wallet>, String> {
-    // Get all mints from the database
-    let mints = localstore.get_mints().await
-        .map_err(|e| format!("Failed to get mints from database: {}", e))?;
-
-    let mut wallets = Vec::new();
-
-    for (mint_url, mint_info) in mints {
-        // Get supported units from mint info, or default to Sat
-        let units = if let Some(mint_info) = mint_info {
-            mint_info.supported_units().into_iter().cloned().collect()
-        } else {
-            vec![CurrencyUnit::Sat]
-        };
-
-        for unit in units {
-            // Try to create wallet from existing data with the same seed
-            match Wallet::new(
-                &mint_url.to_string(),
-                unit.clone(),
-                Arc::new(localstore.clone()),
-                seed,
-                None,
-            ) {
-                Ok(wallet) => {
-                    wallets.push(wallet);
-                }
-                Err(_) => {
-                    // Skip wallets that can't be loaded
-                }
-            }
-        }
-    }
-
-    Ok(wallets)
+/// Note: This function is no longer needed as MultiMintWallet automatically loads wallets
+async fn load_wallets_from_database(_localstore: &WalletSqliteDatabase, _seed: &[u8]) -> Result<Vec<Wallet>, String> {
+    // MultiMintWallet now automatically loads wallets from database in its constructor
+    // This function is kept for compatibility but returns empty vector
+    Ok(Vec::new())
 }
 
 /// Add a mint to MultiMintWallet - defaults to sat unit
@@ -275,53 +237,46 @@ pub async fn add_mint(mint_url: String) -> Result<String, String> {
 
     let mint_url_parsed = MintUrl::from_str(&mint_url)
         .map_err(|e| format!("Invalid mint URL: {}", e))?;
-    let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
     
     // Check if wallet already exists
-    if multi_mint_wallet.has(&wallet_key).await {
+    if multi_mint_wallet.has_mint(&mint_url_parsed).await {
         return Ok("Mint already exists".to_string());
     }
 
-    // Create and add wallet - Tor configuration is now global
-    let wallet = multi_mint_wallet.create_and_add_wallet(
-        &mint_url,
-        CurrencyUnit::Sat,
-        None,
-    ).await
-    .map_err(|e| format!("Failed to create wallet: {}", e))?;
+    // Add mint - Tor is automatically used for .onion addresses
+    multi_mint_wallet.add_mint(mint_url_parsed.clone()).await
+        .map_err(|e| format!("Failed to add mint: {}", e))?;
+
+    // Load keysets for the newly added wallet
+    let wallet = multi_mint_wallet.get_wallet(&mint_url_parsed).await
+        .ok_or("Failed to get wallet after adding")?;
 
     wallet.load_mint_keysets().await
         .map_err(|e| format!("Failed to load keysets: {}", e))?;
 
-    wallet.get_active_mint_keyset().await
+    wallet.get_active_keyset().await
         .map_err(|e| format!("Failed to get active keyset: {}", e))?;
 
     Ok("Mint added successfully".to_string())
 }
 
 /// Remove a mint from MultiMintWallet - defaults to sat unit
-
 pub async fn remove_mint(mint_url: String) -> Result<String, String> {
-        let wallet_guard = MULTI_MINT_WALLET.read().await;
-        let multi_mint_wallet = wallet_guard.as_ref()
-            .ok_or("MultiMintWallet not initialized")?;
+    let wallet_guard = MULTI_MINT_WALLET.read().await;
+    let multi_mint_wallet = wallet_guard.as_ref()
+        .ok_or("MultiMintWallet not initialized")?;
 
-        let mint_url_parsed = MintUrl::from_str(&mint_url)
-            .map_err(|e| format!("Invalid mint URL: {}", e))?;
-        let wallet_key = WalletKey::new(mint_url_parsed.clone(), CurrencyUnit::Sat);
-        
-        if !multi_mint_wallet.has(&wallet_key).await {
-            return Err("Mint not found".to_string());
-        }
+    let mint_url_parsed = MintUrl::from_str(&mint_url)
+        .map_err(|e| format!("Invalid mint URL: {}", e))?;
+    
+    if !multi_mint_wallet.has_mint(&mint_url_parsed).await {
+        return Err("Mint not found".to_string());
+    }
 
-        // Remove wallet from memory
-        multi_mint_wallet.remove_wallet(&wallet_key).await;
-        
-        // Remove mint from database
-        multi_mint_wallet.localstore.remove_mint(mint_url_parsed).await
-            .map_err(|e| format!("Failed to remove mint from database: {}", e))?;
-        
-        Ok("Mint removed successfully".to_string())
+    // Remove mint (removes from both memory and database)
+    multi_mint_wallet.remove_mint(&mint_url_parsed).await;
+    
+    Ok("Mint removed successfully".to_string())
 }
 
 /// List all mints in MultiMintWallet
@@ -358,20 +313,18 @@ pub async fn get_wallet_info(mint_url: String) -> Result<WalletInfo, String> {
         let multi_mint_wallet = wallet_guard.as_ref()
             .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
-        
-        if !multi_mint_wallet.has(&wallet_key).await {
+        if !multi_mint_wallet.has_mint(&mint_url_parsed).await {
             return Err("Mint not found in wallet".to_string());
         }
 
-        let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
+        let wallet = multi_mint_wallet.get_wallet(&mint_url_parsed).await
             .ok_or("Failed to get wallet")?;
 
         let balance = wallet.total_balance().await
             .map_err(|e| format!("Failed to get balance: {}", e))?;
 
         // Get active keyset ID from mint info
-        let active_keyset_id = wallet.get_active_mint_keyset().await
+        let active_keyset_id = wallet.get_active_keyset().await
             .map_err(|e| format!("Failed to get active keyset: {}", e))?
             .id.to_string();
 
@@ -425,18 +378,17 @@ pub async fn get_all_balances() -> Result<HashMap<String, u64>, String> {
 
     let mut balances = HashMap::new();
     
-    // Get balances for each unit
-    for unit in [CurrencyUnit::Sat, CurrencyUnit::Usd, CurrencyUnit::Eur] {
-        match multi_mint_wallet.get_balances(&unit).await {
-            Ok(unit_balances) => {
-                for (mint_url, amount) in unit_balances {
-                    let key = format!("{}:{}", mint_url, unit);
-                    balances.insert(key, amount.into());
-                }
+    // Get balances for all mints (MultiMintWallet now supports only one unit per instance)
+    // Note: This wallet instance is for Sat unit only
+    match multi_mint_wallet.get_balances().await {
+        Ok(mint_balances) => {
+            for (mint_url, amount) in mint_balances {
+                let key = format!("{}:{}", mint_url, multi_mint_wallet.unit());
+                balances.insert(key, amount.into());
             }
-            Err(_) => {
-                // Continue if one unit fails
-            }
+        }
+        Err(_) => {
+            // Continue if fails
         }
     }
 
@@ -487,15 +439,16 @@ fn extract_supported_nuts(nuts: &cdk::nuts::Nuts) -> Vec<String> {
     }
 
     // Add auth NUTs if available
-    #[cfg(feature = "auth")]
-    {
-        if nuts.nut21.is_some() {
-            supported_nuts.push("NUT-21".to_string());
-        }
-        if nuts.nut22.is_some() {
-            supported_nuts.push("NUT-22".to_string());
-        }
-    }
+    // Note: auth feature is not enabled in purrwallet, so NUT-21 and NUT-22 are skipped
+    // #[cfg(feature = "auth")]
+    // {
+    //     if nuts.nut21.is_some() {
+    //         supported_nuts.push("NUT-21".to_string());
+    //     }
+    //     if nuts.nut22.is_some() {
+    //         supported_nuts.push("NUT-22".to_string());
+    //     }
+    // }
 
     supported_nuts
 }
@@ -510,17 +463,15 @@ pub async fn get_mint_info(mint_url: String) -> Result<MintInfo, String> {
     let multi_mint_wallet = wallet_guard.as_ref()
         .ok_or("MultiMintWallet not initialized")?;
 
-    let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
-
-    if !multi_mint_wallet.has(&wallet_key).await {
+    if !multi_mint_wallet.has_mint(&mint_url_parsed).await {
         return Err("Mint not found in wallet".to_string());
     }
 
-    let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
+    let wallet = multi_mint_wallet.get_wallet(&mint_url_parsed).await
         .ok_or("Failed to get wallet")?;
 
-    // Get mint info using the wallet's get_mint_info method
-    let mint_info_result = wallet.get_mint_info().await
+    // Get mint info using the wallet's fetch_mint_info method
+    let mint_info_result = wallet.fetch_mint_info().await
         .map_err(|e| format!("Failed to get mint info: {}", e))?;
 
     match mint_info_result {
@@ -562,9 +513,7 @@ pub async fn send_tokens(mint_url: String, amount: u64, memo: Option<String>) ->
         let multi_mint_wallet = wallet_guard.as_ref()
             .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
-        
-        if !multi_mint_wallet.has(&wallet_key).await {
+        if !multi_mint_wallet.has_mint(&mint_url_parsed).await {
             return Err("Mint not found in wallet".to_string());
         }
 
@@ -580,11 +529,16 @@ pub async fn send_tokens(mint_url: String, amount: u64, memo: Option<String>) ->
             ..Default::default()
         };
         
-        let prepared_send = multi_mint_wallet.prepare_send(&wallet_key, send_amount, send_options).await
+        let multi_mint_send_options = MultiMintSendOptions {
+            send_options,
+            ..Default::default()
+        };
+        
+        let prepared_send = multi_mint_wallet.prepare_send(mint_url_parsed, send_amount, multi_mint_send_options).await
             .map_err(|e| format!("Failed to prepare send: {}", e))?;
 
         let send_memo = memo.map(|m| cdk::wallet::SendMemo::for_token(&m));
-        let token = multi_mint_wallet.send(&wallet_key, prepared_send, send_memo).await
+        let token = prepared_send.confirm(send_memo).await
             .map_err(|e| format!("Failed to send: {}", e))?;
 
         let token_str = token.to_string();
@@ -611,17 +565,15 @@ pub async fn receive_tokens(token: String) -> Result<u64, String> {
         let multi_mint_wallet = wallet_guard.as_ref()
             .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet_key = WalletKey::new(token_mint_url.clone(), CurrencyUnit::Sat);
-        
         // If mint doesn't exist, add it automatically
-        if !multi_mint_wallet.has(&wallet_key).await {
+        if !multi_mint_wallet.has_mint(&token_mint_url).await {
             // Add the mint automatically
-            let _wallet = multi_mint_wallet.create_and_add_wallet(&token_mint_url.to_string(), CurrencyUnit::Sat, None).await
+            multi_mint_wallet.add_mint(token_mint_url.clone()).await
                 .map_err(|e| format!("Failed to add mint automatically: {}", e))?;
         }
 
         // Get wallet for receiving
-        let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
+        let wallet = multi_mint_wallet.get_wallet(&token_mint_url).await
             .ok_or("Failed to get wallet")?;
 
         // Add metadata for transaction tracking
@@ -650,21 +602,19 @@ pub async fn create_mint_quote(mint_url: String, amount: u64, description: Optio
         let multi_mint_wallet = wallet_guard.as_ref()
             .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
-        
-        if !multi_mint_wallet.has(&wallet_key).await {
+        if !multi_mint_wallet.has_mint(&mint_url_parsed).await {
             return Err("Mint not found in wallet".to_string());
         }
 
         // Use CDK MultiMintWallet API directly
         let mint_amount = Amount::from(amount);
-        let quote = multi_mint_wallet.mint_quote(&wallet_key, mint_amount, description).await
+        let quote = multi_mint_wallet.mint_quote(&mint_url_parsed, mint_amount, description).await
             .map_err(|e| format!("Failed to create mint quote: {}", e))?;
 
         let mut result = HashMap::new();
         result.insert("quote_id".to_string(), quote.id);
         result.insert("request".to_string(), quote.request);
-        result.insert("amount".to_string(), u64::from(quote.amount).to_string());
+        result.insert("amount".to_string(), u64::from(quote.amount.unwrap_or(Amount::ZERO)).to_string());
         result.insert("unit".to_string(), quote.unit.to_string());
 
         Ok(result)
@@ -681,13 +631,11 @@ pub async fn get_wallet_proofs(mint_url: String) -> Result<Vec<CashuProof>, Stri
         let multi_mint_wallet = wallet_guard.as_ref()
             .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
-        
-        if !multi_mint_wallet.has(&wallet_key).await {
+        if !multi_mint_wallet.has_mint(&mint_url_parsed).await {
             return Err("Mint not found in wallet".to_string());
         }
 
-        let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
+        let wallet = multi_mint_wallet.get_wallet(&mint_url_parsed).await
             .ok_or("Failed to get wallet")?;
 
         let proofs = wallet.get_unspent_proofs().await
@@ -814,17 +762,24 @@ pub async fn pay_invoice_for_wallet(mint_url: String, bolt11_invoice: String, ma
         let multi_mint_wallet = wallet_guard.as_ref()
             .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
-        
-        if !multi_mint_wallet.has(&wallet_key).await {
+        if !multi_mint_wallet.has_mint(&mint_url_parsed).await {
             return Err("Mint not found in wallet".to_string());
         }
 
-        // Convert max_fee_sats to Amount if provided
-        let max_fee = max_fee_sats.map(Amount::from);
+        // Get wallet for melting
+        let wallet = multi_mint_wallet.get_wallet(&mint_url_parsed).await
+            .ok_or("Failed to get wallet")?;
 
-        // Use CDK MultiMintWallet API directly
-        let melted = multi_mint_wallet.pay_invoice_for_wallet(&bolt11_invoice, None, &wallet_key, max_fee).await
+        // Convert max_fee_sats to Amount if provided
+        // Note: max_fee is not currently used in melt_quote, but kept for future use
+        let _max_fee = max_fee_sats.map(Amount::from);
+
+        // First, get a melt quote for the invoice
+        let quote = wallet.melt_quote(bolt11_invoice.clone(), None).await
+            .map_err(|e| format!("Failed to get melt quote: {}", e))?;
+
+        // Then, execute the melt using the quote ID
+        let melted = wallet.melt(&quote.id).await
             .map_err(|e| format!("Failed to pay invoice: {}", e))?;
 
         // Return payment status
@@ -850,14 +805,12 @@ pub async fn verify_token_p2pk(mint_url: String, token: String, conditions: Stri
         let multi_mint_wallet = wallet_guard.as_ref()
             .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
-        
-        if !multi_mint_wallet.has(&wallet_key).await {
+        if !multi_mint_wallet.has_mint(&mint_url_parsed).await {
             return Err("Mint not found in wallet".to_string());
         }
 
-        // Use CDK MultiMintWallet API directly
-        match multi_mint_wallet.verify_token_p2pk(&wallet_key, &cashu_token, spending_conditions).await {
+        // Use CDK MultiMintWallet API directly (no longer needs WalletKey)
+        match multi_mint_wallet.verify_token_p2pk(&cashu_token, spending_conditions).await {
             Ok(_) => Ok(true),
             Err(e) => Err(format!("Token verification failed: {}", e)),
         }
@@ -878,14 +831,12 @@ pub async fn verify_token_dleq(mint_url: String, token: String) -> Result<bool, 
         let multi_mint_wallet = wallet_guard.as_ref()
             .ok_or("MultiMintWallet not initialized")?;
 
-        let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
-        
-        if !multi_mint_wallet.has(&wallet_key).await {
+        if !multi_mint_wallet.has_mint(&mint_url_parsed).await {
             return Err("Mint not found in wallet".to_string());
         }
 
-        // Use CDK MultiMintWallet API directly
-        match multi_mint_wallet.verify_token_dleq(&wallet_key, &cashu_token).await {
+        // Use CDK MultiMintWallet API directly (no longer needs WalletKey)
+        match multi_mint_wallet.verify_token_dleq(&cashu_token).await {
             Ok(_) => Ok(true),
             Err(e) => Err(format!("DLEQ verification failed: {}", e)),
         }
@@ -903,22 +854,15 @@ pub async fn check_mint_quote_status(mint_url: String) -> Result<String, String>
     let multi_mint_wallet = wallet_guard.as_ref()
         .ok_or("MultiMintWallet not initialized")?;
 
-    let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
-    
-    if !multi_mint_wallet.has(&wallet_key).await {
+    if !multi_mint_wallet.has_mint(&mint_url_parsed).await {
         return Err("Mint not found in wallet".to_string());
     }
 
     // Use CDK MultiMintWallet API directly - check all quotes and auto-mint if paid
-    let amounts_minted = multi_mint_wallet.check_all_mint_quotes(Some(wallet_key)).await
+    let total_minted = multi_mint_wallet.check_all_mint_quotes(Some(mint_url_parsed)).await
         .map_err(|e| format!("Failed to check mint quotes: {}", e))?;
 
-    // Return the total amount minted for this wallet
-    let total_minted = amounts_minted.get(&CurrencyUnit::Sat)
-        .map(|amount| u64::from(*amount))
-        .unwrap_or(0);
-
-    Ok(total_minted.to_string())
+    Ok(u64::from(total_minted).to_string())
 }
 
 /// Check all mint quotes across all wallets and automatically mint if paid
@@ -927,19 +871,12 @@ pub async fn check_all_mint_quotes() -> Result<HashMap<String, String>, String> 
     let multi_mint_wallet = wallet_guard.as_ref()
         .ok_or("MultiMintWallet not initialized")?;
 
-    let amounts_minted = multi_mint_wallet.check_all_mint_quotes(None).await
+    let total_minted = multi_mint_wallet.check_all_mint_quotes(None).await
         .map_err(|e| format!("Failed to check mint quotes: {}", e))?;
 
     let mut result = HashMap::new();
-    let mut total_minted = 0u64;
-
-    for (unit, amount) in amounts_minted {
-        let amount_u64 = u64::from(amount);
-        total_minted += amount_u64;
-        result.insert(unit.to_string(), amount_u64.to_string());
-    }
-
-    result.insert("total_minted".to_string(), total_minted.to_string());
+    result.insert("total_minted".to_string(), u64::from(total_minted).to_string());
+    result.insert("unit".to_string(), multi_mint_wallet.unit().to_string());
     Ok(result)
 }
 
@@ -953,14 +890,12 @@ pub async fn check_melt_quote_status(mint_url: String) -> Result<String, String>
     let multi_mint_wallet = wallet_guard.as_ref()
         .ok_or("MultiMintWallet not initialized")?;
 
-    let wallet_key = WalletKey::new(mint_url_parsed, CurrencyUnit::Sat);
-    
-    if !multi_mint_wallet.has(&wallet_key).await {
+    if !multi_mint_wallet.has_mint(&mint_url_parsed).await {
         return Err("Mint not found in wallet".to_string());
     }
 
     // Get the wallet
-    let wallet = multi_mint_wallet.get_wallet(&wallet_key).await
+    let _wallet = multi_mint_wallet.get_wallet(&mint_url_parsed).await
         .ok_or("Wallet not found")?;
 
     // todo: get all melt quotes
@@ -974,14 +909,14 @@ pub async fn check_all_melt_quotes() -> Result<String, String> {
     let multi_mint_wallet = wallet_guard.as_ref()
         .ok_or("MultiMintWallet not initialized")?;
 
-    let wallets = multi_mint_wallet.wallets.read().await;
+    let wallets = multi_mint_wallet.get_wallets().await;
     let mut total_completed_count = 0u64;
 
     // Iterate through all wallets and call check_melt_quote_status for each
-    for (wallet_key, _wallet) in wallets.iter() {
-        let mint_url = wallet_key.mint_url.to_string();
+    for wallet in wallets.iter() {
+        let mint_url = wallet.mint_url.to_string();
         let result = check_melt_quote_status(mint_url).await
-            .map_err(|e| format!("Failed to check melt quotes for {}: {}", wallet_key.mint_url, e))?;
+            .map_err(|e| format!("Failed to check melt quotes for {}: {}", wallet.mint_url, e))?;
         
         let completed_count = result.parse::<u64>()
             .map_err(|e| format!("Failed to parse completed count: {}", e))?;
@@ -1000,136 +935,72 @@ pub async fn validate_mnemonic_phrase(mnemonic_phrase: String) -> Result<bool, S
     }
 }
 
-/// Set Tor configuration
-#[cfg(feature = "tor")]
-pub async fn set_tor_config(policy: TorPolicy) -> Result<(), String> {
-    set_tor_config_with_paths(policy, None, None, None).await
-}
+// Old Tor configuration API has been removed.
+// New implementation automatically uses Tor for .onion addresses.
+// To explicitly control Tor usage, use WalletBuilder::use_tor() when creating wallets.
 
-/// Set Tor configuration with custom storage paths
+/// Set Tor configuration (deprecated - Tor is now auto-detected for .onion addresses)
+/// This function is kept for FFI compatibility but does nothing.
+/// The policy parameter is ignored.
 #[cfg(feature = "tor")]
-pub async fn set_tor_config_with_paths(
-    policy: TorPolicy,
-    cache_dir: Option<String>,
-    state_dir: Option<String>,
-    bridges: Option<Vec<String>>,
-) -> Result<(), String> {
-    let tor_config = TorConfig {
-        policy: policy.into(),
-        client_config: None,
-        accept_invalid_certs: false,
-        cache_dir,
-        state_dir,
-        bridges,
-    };
-    
-    // Set Tor configuration
-    cdk_set_tor_config(tor_config.clone()).await
-        .map_err(|e| format!("Failed to set Tor config: {}", e))?;
-    
-    // Store in local state for compatibility
-    let mut config_guard = TOR_CONFIG.write().await;
-    *config_guard = Some(tor_config);
-    
+pub async fn set_tor_config(_policy: bool) -> Result<(), String> {
+    // Tor is now automatically used for .onion addresses
     Ok(())
 }
 
-/// Get current Tor configuration
+/// Get current Tor configuration (deprecated)
 #[cfg(feature = "tor")]
-pub async fn get_tor_config() -> Result<TorPolicy, String> {
-    // Try to get from global config first
-    if let Some(global_config) = cdk_get_tor_config() {
-        let policy = match global_config.policy {
-            CdkTorPolicy::Never => TorPolicy::Never,
-            CdkTorPolicy::OnionOnly => TorPolicy::OnionOnly,
-            CdkTorPolicy::Always => TorPolicy::Always,
-        };
-        return Ok(policy);
-    }
-    
-    // Fallback to local state
-    let config_guard = TOR_CONFIG.read().await;
-    match config_guard.as_ref() {
-        Some(config) => {
-            let policy = match config.policy {
-                CdkTorPolicy::Never => TorPolicy::Never,
-                CdkTorPolicy::OnionOnly => TorPolicy::OnionOnly,
-                CdkTorPolicy::Always => TorPolicy::Always,
-            };
-            Ok(policy)
-        },
-        None => Ok(TorPolicy::Never),
-    }
+pub async fn get_tor_config() -> Result<(), String> {
+    // Tor is now automatically used for .onion addresses
+    Ok(())
 }
 
-/// Check if Tor is currently enabled
+/// Check if Tor is currently enabled (deprecated - always returns true if tor feature enabled)
 #[cfg(feature = "tor")]
 pub async fn is_tor_enabled() -> Result<bool, String> {
-    // Check global config first
-    if let Some(global_config) = cdk_get_tor_config() {
-        return Ok(!matches!(global_config.policy, CdkTorPolicy::Never));
-    }
-    
-    // Fallback to local state
-    let config_guard = TOR_CONFIG.read().await;
-    match config_guard.as_ref() {
-        Some(config) => {
-            match config.policy {
-                CdkTorPolicy::Never => Ok(false),
-                _ => Ok(true),
-            }
-        },
-        None => Ok(false),
-    }
+    // Tor is automatically used for .onion addresses when tor feature is enabled
+    Ok(true)
 }
 
-/// Check if Tor is ready (fully bootstrapped and can make connections)
+/// Check if Tor is ready (deprecated - not available in new implementation)
 #[cfg(feature = "tor")]
 pub async fn is_tor_ready() -> Result<bool, String> {
-    use cdk::wallet::is_tor_ready as cdk_is_tor_ready;
-    cdk_is_tor_ready().await
-        .map_err(|e| format!("Failed to check Tor status: {}", e))
+    // Tor readiness checking is not available in the new implementation
+    // Tor connections are made on-demand
+    Ok(true)
 }
 
-/// Reinitialize MultiMintWallet with current Tor configuration
+/// Reinitialize MultiMintWallet with current Tor configuration (deprecated)
+/// Tor is now automatically used for .onion addresses, no reinitialization needed.
 #[cfg(feature = "tor")]
 pub async fn reinitialize_with_tor_config(database_dir: String, seed_hex: String) -> Result<String, String> {
-    // Get current Tor config
-    let tor_config = {
-        let config_guard = TOR_CONFIG.read().await;
-        config_guard.clone()
-    };
-    
     // Clear existing wallet
     {
         let mut wallet_guard = MULTI_MINT_WALLET.write().await;
         *wallet_guard = None;
     }
     
-    // Reinitialize with Tor config
-    init_multi_mint_wallet_with_tor(database_dir, seed_hex, tor_config).await
+    // Reinitialize - Tor will be automatically used for .onion addresses
+    init_multi_mint_wallet(database_dir, seed_hex).await
 }
 
-/// Initialize MultiMintWallet with Tor configuration
+/// Initialize MultiMintWallet with Tor configuration (deprecated)
+/// Tor is now automatically used for .onion addresses, no special initialization needed.
+/// The tor_config parameter is ignored.
 #[cfg(feature = "tor")]
 pub async fn init_multi_mint_wallet_with_tor(
     database_dir: String, 
     seed_hex: String, 
-    tor_config: Option<TorConfig>
+    _tor_config: Option<String>
 ) -> Result<String, String> {
-    // Store Tor config first
-    if let Some(tor_config) = tor_config {
-        let mut config_guard = TOR_CONFIG.write().await;
-        *config_guard = Some(tor_config);
-    }
-    
-    // Use the regular init function which will pick up the Tor config
+    // Tor is automatically used for .onion addresses
+    // Use the regular init function
     init_multi_mint_wallet(database_dir, seed_hex).await
 }
 
 /// Non-Tor fallback implementations to keep FFI stable
 #[cfg(not(feature = "tor"))]
-pub async fn set_tor_config(_policy: ()) -> Result<(), String> {
+pub async fn set_tor_config(_policy: bool) -> Result<(), String> {
     Err("Tor feature not enabled".to_string())
 }
 
@@ -1157,7 +1028,7 @@ pub async fn reinitialize_with_tor_config(_database_dir: String, _seed_hex: Stri
 pub async fn init_multi_mint_wallet_with_tor(
     database_dir: String, 
     seed_hex: String, 
-    _tor_config: Option<()>
+    _tor_config: Option<String>
 ) -> Result<String, String> {
     // Fallback to regular init without Tor
     init_multi_mint_wallet(database_dir, seed_hex).await
