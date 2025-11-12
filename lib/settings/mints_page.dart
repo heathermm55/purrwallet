@@ -442,9 +442,10 @@ class _MintsPageState extends State<MintsPage> {
       return 'https://$url';
     }
 
-    // For Tor .onion addresses, add https
+    // For Tor .onion addresses, use http (not https)
+    // .onion addresses must use HTTP protocol
     if (url.endsWith('.onion')) {
-      return 'https://$url';
+      return 'http://$url';
     }
 
     // Default to https for any other case

@@ -192,8 +192,17 @@ pub async fn init_multi_mint_wallet(database_dir: String, seed_hex: String) -> R
         return Err(format!("Seed must be 32 or 64 bytes, got {}", seed.len()));
     };
 
-    // Create MultiMintWallet with default unit (Sat)
+    // Create MultiMintWallet with shared Tor transport to avoid multiple Tor instances
     // Note: MultiMintWallet now supports only one currency unit per instance
+    #[cfg(all(feature = "tor", not(target_arch = "wasm32")))]
+    let multi_mint_wallet = MultiMintWallet::new_with_tor(
+        Arc::new(localstore),
+        seed_64,
+        CurrencyUnit::Sat, // Default to Sat unit
+    ).await
+    .map_err(|e| format!("Failed to create MultiMintWallet with Tor: {}", e))?;
+    
+    #[cfg(not(all(feature = "tor", not(target_arch = "wasm32"))))]
     let multi_mint_wallet = MultiMintWallet::new(
         Arc::new(localstore),
         seed_64,
@@ -235,7 +244,15 @@ pub async fn add_mint(mint_url: String) -> Result<String, String> {
     let multi_mint_wallet = wallet_guard.as_ref()
         .ok_or("MultiMintWallet not initialized")?;
 
-    let mint_url_parsed = MintUrl::from_str(&mint_url)
+    // Normalize URL: convert https:// to http:// for .onion addresses
+    // .onion addresses must use HTTP, not HTTPS
+    let normalized_url = if mint_url.contains(".onion") && mint_url.starts_with("https://") {
+        mint_url.replace("https://", "http://")
+    } else {
+        mint_url
+    };
+
+    let mint_url_parsed = MintUrl::from_str(&normalized_url)
         .map_err(|e| format!("Invalid mint URL: {}", e))?;
     
     // Check if wallet already exists
@@ -247,10 +264,53 @@ pub async fn add_mint(mint_url: String) -> Result<String, String> {
     multi_mint_wallet.add_mint(mint_url_parsed.clone()).await
         .map_err(|e| format!("Failed to add mint: {}", e))?;
 
-    // Load keysets for the newly added wallet
+    // Get the wallet after adding
     let wallet = multi_mint_wallet.get_wallet(&mint_url_parsed).await
         .ok_or("Failed to get wallet after adding")?;
 
+    // Explicitly fetch and verify mint info is saved to database
+    // This is critical: if mint info cannot be fetched, the mint should not be considered added
+    let fetch_result = wallet.fetch_mint_info().await;
+    
+    let mint_info = match fetch_result {
+        Ok(Some(info)) => info,
+        Ok(None) => {
+            // fetch_mint_info returned None, meaning connection failed
+            // Rollback by removing the wallet from memory
+            drop(wallet_guard);
+            let mut wallet_guard_write = MULTI_MINT_WALLET.write().await;
+            if let Some(multi_mint_wallet) = wallet_guard_write.as_ref() {
+                multi_mint_wallet.remove_mint(&mint_url_parsed).await;
+            }
+            return Err("Failed to fetch mint info: Tor connection failed or mint is unreachable. Please check your network connection and try again.".to_string());
+        }
+        Err(e) => {
+            // fetch_mint_info returned an error
+            // Rollback by removing the wallet from memory
+            drop(wallet_guard);
+            let mut wallet_guard_write = MULTI_MINT_WALLET.write().await;
+            if let Some(multi_mint_wallet) = wallet_guard_write.as_ref() {
+                multi_mint_wallet.remove_mint(&mint_url_parsed).await;
+            }
+            return Err(format!("Failed to fetch mint info: {}", e));
+        }
+    };
+
+    // Verify mint info was actually saved to database
+    let saved_mint_info = wallet.localstore.get_mint(mint_url_parsed.clone()).await
+        .map_err(|e| format!("Failed to verify mint info in database: {}", e))?;
+    
+    if saved_mint_info.is_none() {
+        // Mint info was not saved, rollback
+        drop(wallet_guard);
+        let mut wallet_guard_write = MULTI_MINT_WALLET.write().await;
+        if let Some(multi_mint_wallet) = wallet_guard_write.as_ref() {
+            multi_mint_wallet.remove_mint(&mint_url_parsed).await;
+        }
+        return Err("Failed to save mint info to database".to_string());
+    }
+
+    // Load keysets for the newly added wallet
     wallet.load_mint_keysets().await
         .map_err(|e| format!("Failed to load keysets: {}", e))?;
 
