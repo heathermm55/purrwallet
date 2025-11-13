@@ -11,6 +11,13 @@ NEW_PATH=`echo $PATH | tr ":" "\n" | grep -v "Contents/Developer/" | tr "\n" ":"
 
 export PATH=${NEW_PATH%?} # remove trailing :
 
+# Xcode sets SDKROOT to the active SDK (e.g. iPhoneOS) for the whole build.
+# When Cargo builds host tools (x86_64-apple-darwin) this causes Clang to pick
+# iOS headers and fail with "Unsupported architecture". Clear SDKROOT so host
+# builds fall back to the macOS SDK; target-specific invocations will set their
+# own flags.
+unset SDKROOT
+
 env
 
 # Platform name (macosx, iphoneos, iphonesimulator)
