@@ -192,17 +192,10 @@ pub async fn init_multi_mint_wallet(database_dir: String, seed_hex: String) -> R
         return Err(format!("Seed must be 32 or 64 bytes, got {}", seed.len()));
     };
 
-    // Create MultiMintWallet with shared Tor transport to avoid multiple Tor instances
+    // Create MultiMintWallet without shared Tor transport
+    // Tor will be automatically used only for .onion addresses when adding mints
+    // This allows regular HTTPS URLs to use direct connections (faster and more reliable)
     // Note: MultiMintWallet now supports only one currency unit per instance
-    #[cfg(all(feature = "tor", not(target_arch = "wasm32")))]
-    let multi_mint_wallet = MultiMintWallet::new_with_tor(
-        Arc::new(localstore),
-        seed_64,
-        CurrencyUnit::Sat, // Default to Sat unit
-    ).await
-    .map_err(|e| format!("Failed to create MultiMintWallet with Tor: {}", e))?;
-    
-    #[cfg(not(all(feature = "tor", not(target_arch = "wasm32"))))]
     let multi_mint_wallet = MultiMintWallet::new(
         Arc::new(localstore),
         seed_64,
