@@ -11,6 +11,8 @@ class SettingsPage extends StatelessWidget {
   
   const SettingsPage({super.key, this.embedded = false});
 
+  static const String _torPrefKey = 'cashu_tor_enabled';
+
   @override
   Widget build(BuildContext context) {
     final body = ListView(
@@ -32,7 +34,7 @@ class SettingsPage extends StatelessWidget {
           _buildSettingsCard(
             context,
             title: 'Security',
-            subtitle: 'Seed phrase and restore options',
+            subtitle: 'Seed phrase and Tor settings',
             icon: Icons.security,
             onTap: () => _showSecurityDialog(context),
           ),
@@ -181,94 +183,146 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
-  void _showSecurityDialog(BuildContext context) {
+  Future<void> _showSecurityDialog(BuildContext context) async {
+    bool torEnabled = await _getTorPreference();
+    bool torLoading = false;
+
+    if (!context.mounted) return;
+
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
-          title: const Text(
-            'Security',
-            style: TextStyle(
-              color: Color(0xFF00FF00),
-              fontFamily: 'Courier',
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.vpn_key, color: Color(0xFF00FF00)),
-                title: const Text(
-                  'View Seed Phrase',
-                  style: TextStyle(
-                    color: Color(0xFF00FF00),
-                    fontFamily: 'Courier',
-                  ),
-                ),
-                subtitle: const Text(
-                  'Display wallet seed phrase',
-                  style: TextStyle(
-                    color: Color(0xFF666666),
-                    fontFamily: 'Courier',
-                    fontSize: 10,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _showSeedPhraseDialog(context);
-                },
-              ),
-              const Divider(color: Color(0xFF333333)),
-              ListTile(
-                leading: const Icon(Icons.restore, color: Color(0xFF00FF00)),
-                title: const Text(
-                  'Restore Wallet',
-                  style: TextStyle(
-                    color: Color(0xFF00FF00),
-                    fontFamily: 'Courier',
-                  ),
-                ),
-                subtitle: const Text(
-                  'Import wallet from seed phrase',
-                  style: TextStyle(
-                    color: Color(0xFF666666),
-                    fontFamily: 'Courier',
-                    fontSize: 10,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.of(context).pop();
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            Future<void> handleToggle(bool value) async {
+              setState(() {
+                torLoading = true;
+              });
+              try {
+                await _setTorPreference(value);
+                setState(() {
+                  torEnabled = value;
+                });
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
+                    SnackBar(
                       content: Text(
-                        'Restore wallet functionality coming soon',
-                        style: TextStyle(
+                        value ? 'Tor enabled' : 'Tor disabled',
+                        style: const TextStyle(
                           color: Color(0xFF00FF00),
                           fontFamily: 'Courier',
                         ),
                       ),
-                      backgroundColor: Color(0xFF1A1A1A),
-                      duration: Duration(seconds: 2),
+                      backgroundColor: const Color(0xFF1A1A1A),
+                      duration: const Duration(seconds: 2),
                     ),
                   );
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                'Close',
+                }
+              } catch (e) {
+                setState(() {
+                  torEnabled = !value;
+                });
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Failed to update Tor: $e',
+                        style: const TextStyle(
+                          color: Color(0xFFFF6B6B),
+                          fontFamily: 'Courier',
+                        ),
+                      ),
+                      backgroundColor: const Color(0xFF1A1A1A),
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                }
+              } finally {
+                setState(() {
+                  torLoading = false;
+                });
+              }
+            }
+
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1A1A1A),
+              title: const Text(
+                'Security',
                 style: TextStyle(
                   color: Color(0xFF00FF00),
                   fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-          ],
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.vpn_key, color: Color(0xFF00FF00)),
+                    title: const Text(
+                      'View Seed Phrase',
+                      style: TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Display wallet seed phrase',
+                      style: TextStyle(
+                        color: Color(0xFF666666),
+                        fontFamily: 'Courier',
+                        fontSize: 10,
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.of(dialogContext).pop();
+                      _showSeedPhraseDialog(context);
+                    },
+                  ),
+                  const Divider(color: Color(0xFF333333)),
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                    minLeadingWidth: 28,
+                    leading: const Icon(Icons.shield, color: Color(0xFF00FF00)),
+                    title: const Text(
+                      'Always use Tor',
+                      style: TextStyle(
+                        color: Color(0xFF00FF00),
+                        fontFamily: 'Courier',
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Route all requests through Tor when enabled',
+                      style: TextStyle(
+                        color: Color(0xFF666666),
+                        fontFamily: 'Courier',
+                        fontSize: 10,
+                      ),
+                    ),
+                    trailing: Switch(
+                        value: torEnabled,
+                        onChanged: torLoading ? null : handleToggle,
+                        activeColor: const Color(0xFF00FF00),
+                        inactiveTrackColor: const Color(0xFF333333),
+                        inactiveThumbColor: Colors.white,
+                      ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text(
+                    'Close',
+                    style: TextStyle(
+                      color: Color(0xFF00FF00),
+                      fontFamily: 'Courier',
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -383,6 +437,7 @@ class SettingsPage extends StatelessWidget {
     }
   }
 
+  // ignore: unused_element
   void _showNetworkDialog(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     
@@ -521,4 +576,18 @@ class SettingsPage extends StatelessWidget {
     }
   }
 
+  Future<bool> _getTorPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_torPrefKey) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _setTorPreference(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_torPrefKey, enabled);
+    await setTorConfig(policy: enabled);
+  }
 }

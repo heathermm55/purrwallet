@@ -604,7 +604,6 @@ pub async fn send_tokens(mint_url: String, amount: u64, memo: Option<String>) ->
 }
 
 /// Receive tokens using CDK MultiMintWallet API directly - auto-detects mint URL from token
-
 pub async fn receive_tokens(token: String) -> Result<u64, String> {
         // Parse token to get mint URL
         let cashu_token = Token::from_str(&token)
@@ -641,7 +640,31 @@ pub async fn receive_tokens(token: String) -> Result<u64, String> {
         let received_amount = wallet.receive(&token, receive_options).await
             .map_err(|e| format!("Failed to receive: {}", e))?;
 
-        Ok(received_amount.into())
+    Ok(received_amount.into())
+}
+
+/// Restore wallet balance for a specific mint
+pub async fn restore_mint(mint_url: String) -> Result<u64, String> {
+    let mint_url_parsed =
+        MintUrl::from_str(&mint_url).map_err(|e| format!("Invalid mint URL: {}", e))?;
+
+    let wallet_guard = MULTI_MINT_WALLET.read().await;
+    let multi_mint_wallet = wallet_guard
+        .as_ref()
+        .ok_or("MultiMintWallet not initialized")?
+        .clone();
+    drop(wallet_guard);
+
+    if !multi_mint_wallet.has_mint(&mint_url_parsed).await {
+        return Err("Mint not found in wallet".to_string());
+    }
+
+    let restored_amount = multi_mint_wallet
+        .restore(&mint_url_parsed)
+        .await
+        .map_err(|e| format!("Failed to restore mint: {}", e))?;
+
+    Ok(restored_amount.into())
 }
 
 /// Create mint quote using CDK MultiMintWallet API directly - defaults to sat unit

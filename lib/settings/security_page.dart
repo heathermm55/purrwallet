@@ -1,12 +1,99 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Security settings page - Seed phrase and restore options
-class SecurityPage extends StatelessWidget {
+import 'package:rust_plugin/src/rust/api/cashu.dart';
+
+/// Security settings page - Seed phrase and Tor options
+class SecurityPage extends StatefulWidget {
   const SecurityPage({super.key});
 
+  @override
+  State<SecurityPage> createState() => _SecurityPageState();
+}
+
+class _SecurityPageState extends State<SecurityPage> {
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   static const String _seedKey = 'cashu_wallet_seed';
+  static const String _torPrefKey = 'cashu_tor_enabled';
+
+  bool _torEnabled = true;
+  bool _torLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTorSetting();
+  }
+
+  Future<void> _loadTorSetting() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final storedValue = prefs.getBool(_torPrefKey);
+      setState(() {
+        _torEnabled = storedValue ?? true;
+        _torLoading = false;
+      });
+    } catch (_) {
+      setState(() {
+        _torEnabled = true;
+        _torLoading = false;
+      });
+    }
+  }
+
+  Future<void> _toggleTor(bool value) async {
+    setState(() {
+      _torEnabled = value;
+      _torLoading = true;
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_torPrefKey, value);
+      await setTorConfig(policy: value);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              value ? 'Tor enabled' : 'Tor disabled',
+              style: const TextStyle(
+                color: Color(0xFF00FF00),
+                fontFamily: 'Courier',
+              ),
+            ),
+            backgroundColor: const Color(0xFF1A1A1A),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _torEnabled = !value;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to update Tor: $e',
+              style: const TextStyle(
+                color: Color(0xFFFF6B6B),
+                fontFamily: 'Courier',
+              ),
+            ),
+            backgroundColor: const Color(0xFF1A1A1A),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _torLoading = false;
+        });
+      }
+    }
+  }
 
   Future<String> _getSeedHex() async {
     try {
@@ -45,13 +132,7 @@ class SecurityPage extends StatelessWidget {
             icon: Icons.vpn_key,
             onTap: () => _showSeedPhraseDialog(context),
           ),
-          _buildSecurityCard(
-            context,
-            title: 'Restore Wallet',
-            subtitle: 'Restore from backup',
-            icon: Icons.restore,
-            onTap: () => _showRestoreDialog(context),
-          ),
+          _buildTorCard(),
         ],
       ),
     );
@@ -176,89 +257,38 @@ class SecurityPage extends StatelessWidget {
     );
   }
 
-  void _showRestoreDialog(BuildContext context) {
-    final TextEditingController seedController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
-          title: const Text(
-            'Restore Wallet',
-            style: TextStyle(
-              color: Color(0xFF00FF00),
-              fontFamily: 'Courier',
-              fontWeight: FontWeight.bold,
-            ),
+  Widget _buildTorCard() {
+    return Card(
+      color: const Color(0xFF1A1A1A),
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: Color(0xFF00FF00), width: 1),
+      ),
+      child: SwitchListTile(
+        activeColor: const Color(0xFF00FF00),
+        inactiveThumbColor: Colors.white,
+        inactiveTrackColor: const Color(0xFF333333),
+        secondary: const Icon(Icons.shield, color: Color(0xFF00FF00)),
+        title: const Text(
+          'Use Tor when available',
+          style: TextStyle(
+            color: Color(0xFF00FF00),
+            fontFamily: 'Courier',
+            fontWeight: FontWeight.bold,
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Enter your seed phrase:',
-                style: TextStyle(
-                  color: Color(0xFF00FF00),
-                  fontFamily: 'Courier',
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: seedController,
-                style: const TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  hintText: 'Paste your seed phrase here...',
-                  hintStyle: TextStyle(color: Color(0xFF666666), fontFamily: 'Courier'),
-                  border: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF00FF00))),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00FF00)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00FF00)),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'This will restore your wallet from backup.',
-                style: TextStyle(color: Color(0xFF666666), fontFamily: 'Courier', fontSize: 10),
-              ),
-            ],
+        ),
+        subtitle: const Text(
+          'Automatically route .onion traffic via Tor',
+          style: TextStyle(
+            color: Color(0xFF666666),
+            fontFamily: 'Courier',
+            fontSize: 12,
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                // TODO: Implement restore wallet functionality
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Restore functionality coming soon',
-                      style: TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
-                    ),
-                    backgroundColor: Color(0xFF1A1A1A),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
-              child: const Text(
-                'Restore',
-                style: TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
-              ),
-            ),
-          ],
-        );
-      },
+        ),
+        value: _torEnabled,
+        onChanged: _torLoading ? null : _toggleTor,
+      ),
     );
   }
 }

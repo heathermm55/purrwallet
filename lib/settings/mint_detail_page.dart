@@ -27,6 +27,7 @@ class _MintDetailPageState extends State<MintDetailPage> {
   bool isLoading = true;
   int balance = 0;
   bool isLoadingBalance = true;
+  bool _isRestoringMint = false;
 
   @override
   void initState() {
@@ -117,6 +118,21 @@ class _MintDetailPageState extends State<MintDetailPage> {
           },
         ),
         _buildActionRow(
+          'Restore balance',
+          icon: Icons.restore,
+          trailing: _isRestoringMint
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF00)),
+                  ),
+                )
+              : null,
+          onTap: _isRestoringMint ? null : _confirmRestoreMint,
+        ),
+        _buildActionRow(
           'More info',
           onTap: () {
             Navigator.of(context).push(
@@ -131,6 +147,166 @@ class _MintDetailPageState extends State<MintDetailPage> {
         ),
       ],
     );
+  }
+
+  void _confirmRestoreMint() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: const Text(
+          'Restore Balance',
+          style: TextStyle(
+            color: Color(0xFF00FF00),
+            fontFamily: 'Courier',
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This will scan the mint for funds derived from your seed.',
+              style: TextStyle(
+                color: Color(0xFF00FF00),
+                fontFamily: 'Courier',
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _formatMintUrl(widget.mintUrl),
+              style: const TextStyle(
+                color: Color(0xFF666666),
+                fontFamily: 'Courier',
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: Color(0xFF00FF00),
+                fontFamily: 'Courier',
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _restoreMintBalance();
+            },
+            child: const Text(
+              'Restore',
+              style: TextStyle(
+                color: Color(0xFF00FF00),
+                fontFamily: 'Courier',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _restoreMintBalance() async {
+    if (!mounted) return;
+    setState(() {
+      _isRestoringMint = true;
+    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF00)),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Restoring mint...',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                  fontSize: 14,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Scanning for unspent proofs',
+                style: TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final restoredAmount = await restoreMint(mintUrl: widget.mintUrl);
+
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+
+      final restoredMessage = restoredAmount > BigInt.zero
+          ? 'Restored ${restoredAmount.toString()} sats'
+          : 'No funds found to restore';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            restoredMessage,
+            style: const TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: const Color(0xFF1A1A1A),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      _loadBalance();
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to restore mint: $e',
+              style: const TextStyle(
+                color: Color(0xFFFF6B6B),
+                fontFamily: 'Courier',
+              ),
+            ),
+            backgroundColor: const Color(0xFF1A1A1A),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRestoringMint = false;
+        });
+      }
+    }
   }
 
   Widget _buildDangerZoneSection() {

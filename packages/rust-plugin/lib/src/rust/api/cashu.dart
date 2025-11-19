@@ -70,6 +70,10 @@ Future<String> sendTokens({
 Future<BigInt> receiveTokens({required String token}) =>
     RustLib.instance.api.crateApiCashuReceiveTokens(token: token);
 
+/// Restore wallet balance for a specific mint
+Future<BigInt> restoreMint({required String mintUrl}) =>
+    RustLib.instance.api.crateApiCashuRestoreMint(mintUrl: mintUrl);
+
 /// Create mint quote using CDK MultiMintWallet API directly - defaults to sat unit
 Future<Map<String, String>> createMintQuote({
   required String mintUrl,
