@@ -9,7 +9,7 @@ import 'package:rust_plugin/src/rust/api/cashu.dart';
 class WalletService {
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   static const String _seedKey = 'cashu_wallet_seed';
-  static const String _mintListKey = 'cashu_wallet_mints';
+  static const String _mintListKeyPrefix = 'cashu_wallet_mints';
 
   // Global monitoring timer
   static Timer? _globalMonitorTimer;  // Check all wallets every 1 minute
@@ -82,7 +82,6 @@ class WalletService {
   }
 
   /// Load and apply Tor configuration from storage
-  /// Note: Tor configuration API has been removed. 
   /// New implementation automatically uses Tor for .onion addresses.
   static Future<void> _loadAndApplyTorConfig() async {
     // Tor is now automatically used for .onion addresses when tor feature is enabled
@@ -202,8 +201,12 @@ class WalletService {
   /// Clear wallet data (for logout)
   static Future<void> clearWalletData() async {
     try {
+      final seedHex = await getStoredSeed();
+      if (seedHex != null) {
+        final mintKey = _mintListStorageKey(seedHex);
+        await _secureStorage.delete(key: mintKey);
+      }
       await _secureStorage.delete(key: _seedKey);
-      await _secureStorage.delete(key: _mintListKey);
     } catch (e) {
       // Failed to clear wallet data
     }
@@ -457,7 +460,12 @@ class WalletService {
           .where((url) => url.isNotEmpty)
           .toSet()
           .toList();
-      await _secureStorage.write(key: _mintListKey, value: jsonEncode(urls));
+      final seedHex = await getStoredSeed();
+      if (seedHex == null) {
+        return;
+      }
+      final mintKey = _mintListStorageKey(seedHex);
+      await _secureStorage.write(key: mintKey, value: jsonEncode(urls));
     } catch (e) {
       // Ignore backup errors
     }
@@ -465,7 +473,12 @@ class WalletService {
 
   static Future<List<String>> _getBackedUpMintUrls() async {
     try {
-      final raw = await _secureStorage.read(key: _mintListKey);
+      final seedHex = await getStoredSeed();
+      if (seedHex == null) {
+        return [];
+      }
+      final mintKey = _mintListStorageKey(seedHex);
+      final raw = await _secureStorage.read(key: mintKey);
       if (raw == null || raw.isEmpty) {
         return [];
       }
@@ -487,6 +500,12 @@ class WalletService {
       }
     }
     return entry;
+  }
+
+  static String _mintListStorageKey(String seedHex) {
+    final fingerprint =
+        seedHex.length >= 16 ? seedHex.substring(0, 16) : seedHex;
+    return '$_mintListKeyPrefix:$fingerprint';
   }
 
   /// Get monitoring status
