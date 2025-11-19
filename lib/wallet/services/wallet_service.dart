@@ -1,13 +1,15 @@
-import 'package:rust_plugin/src/rust/api/cashu.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:rust_plugin/src/rust/api/cashu.dart';
 
 /// Service for managing wallet operations
 class WalletService {
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   static const String _seedKey = 'cashu_wallet_seed';
+  static const String _mintListKey = 'cashu_wallet_mints';
 
   // Global monitoring timer
   static Timer? _globalMonitorTimer;  // Check all wallets every 1 minute
@@ -42,7 +44,9 @@ class WalletService {
       _loadAndApplyTorConfig();
 
       // Initialize MultiMintWallet
-      final initResult = initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
+      final initResult = await initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
+
+      await _refreshMintListBackup();
 
       // Start global monitoring after wallet is initialized
       startGlobalMonitoring();
@@ -110,7 +114,9 @@ class WalletService {
   /// Add a new mint to the wallet
   static Future<String> addMintService(String mintUrl, String unit) async {
     try {
-      return await addMint(mintUrl: mintUrl);
+      final result = await addMint(mintUrl: mintUrl);
+      await _refreshMintListBackup();
+      return result;
     } catch (e) {
       String errorMsg = e.toString();
       
@@ -137,7 +143,9 @@ class WalletService {
   /// Remove a mint from the wallet
   static Future<String> removeMintService(String mintUrl, String unit) async {
     try {
-      return removeMint(mintUrl: mintUrl);
+      final result = removeMint(mintUrl: mintUrl);
+      await _refreshMintListBackup();
+      return result;
     } catch (e) {
       throw Exception('Failed to remove mint: $e');
     }
@@ -154,7 +162,7 @@ class WalletService {
       if (errorMsg.contains('Tor is not initialized') && mintUrl.contains('.onion')) {
         // Check if Tor is ready
         try {
-          final isReady = await isTorReady();
+          await isTorReady();
           // Tor still connecting, mint info will be available once Tor is ready
         } catch (_) {
           // Ignore error checking status
@@ -195,9 +203,35 @@ class WalletService {
   static Future<void> clearWalletData() async {
     try {
       await _secureStorage.delete(key: _seedKey);
+      await _secureStorage.delete(key: _mintListKey);
     } catch (e) {
       // Failed to clear wallet data
     }
+  }
+
+  /// Restore mint list from secure storage backup (used on wallet import)
+  static Future<void> restoreMintsFromBackup() async {
+    final backupMints = await _getBackedUpMintUrls();
+    if (backupMints.isEmpty) {
+      return;
+    }
+
+    for (final mintUrl in backupMints) {
+      if (mintUrl.isEmpty) continue;
+      try {
+        await addMint(mintUrl: mintUrl);
+      } catch (_) {
+        // Ignore failures (already exists, offline, etc.)
+      }
+
+      try {
+        await restoreMint(mintUrl: mintUrl);
+      } catch (_) {
+        // Ignore failures (already exists, offline, etc.)
+      }
+    }
+
+    await _refreshMintListBackup();
   }
 
   // ==================== Monitoring Methods ====================
@@ -413,6 +447,46 @@ class WalletService {
       if (!e.toString().contains('expected value at line 1 column 1')) {
       }
     }
+  }
+
+  static Future<void> _refreshMintListBackup() async {
+    try {
+      final mintEntries = await listMints();
+      final urls = mintEntries
+          .map(_extractMintUrl)
+          .where((url) => url.isNotEmpty)
+          .toSet()
+          .toList();
+      await _secureStorage.write(key: _mintListKey, value: jsonEncode(urls));
+    } catch (e) {
+      // Ignore backup errors
+    }
+  }
+
+  static Future<List<String>> _getBackedUpMintUrls() async {
+    try {
+      final raw = await _secureStorage.read(key: _mintListKey);
+      if (raw == null || raw.isEmpty) {
+        return [];
+      }
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded.whereType<String>().toList();
+      }
+    } catch (e) {
+      // Ignore parse errors
+    }
+    return [];
+  }
+
+  static String _extractMintUrl(String entry) {
+    const suffixes = [':sat', ':usd', ':eur'];
+    for (final suffix in suffixes) {
+      if (entry.endsWith(suffix)) {
+        return entry.substring(0, entry.length - suffix.length);
+      }
+    }
+    return entry;
   }
 
   /// Get monitoring status

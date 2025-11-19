@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:rust_plugin/src/rust/api/cashu.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:rust_plugin/src/rust/api/cashu.dart';
+
+import '../services/wallet_service.dart';
 
 /// Import wallet page - Import wallet using seed phrase
 class ImportWalletPage extends StatefulWidget {
@@ -96,7 +98,8 @@ class _ImportWalletPageState extends State<ImportWalletPage> {
       final documentsDir = await getApplicationDocumentsDirectory();
       final databaseDir = documentsDir.path;
 
-      final initResult = await initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
+      await initMultiMintWallet(databaseDir: databaseDir, seedHex: seedHex);
+      await WalletService.restoreMintsFromBackup();
 
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/main');
