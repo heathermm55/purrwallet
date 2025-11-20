@@ -327,7 +327,8 @@ pub async fn remove_mint(mint_url: String) -> Result<String, String> {
     }
 
     // Remove mint (removes from both memory and database)
-    multi_mint_wallet.remove_mint(&mint_url_parsed).await;
+    multi_mint_wallet.remove_mint(&mint_url_parsed).await
+        .map_err(|e| format!("Failed to remove mint: {}", e))?;
     
     Ok("Mint removed successfully".to_string())
 }
