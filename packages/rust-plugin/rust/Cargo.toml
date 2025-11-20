@@ -27,7 +27,6 @@ openssl = { version = "0.10", features = ["vendored"] }
 
 # Remote dependencies - use GitHub repositories
 nostr = { git = "https://github.com/heathermm55/nostr", features = ["nip04", "nip44", "nip60"] }
-# Use local path for testing (change back to git after testing)
-cdk = { path = "../../../../cdk/crates/cdk", default-features = false, features = ["wallet", "tor"] }
-cdk-sqlite = { path = "../../../../cdk/crates/cdk-sqlite", features = ["wallet"] }
-cashu = { path = "../../../../cdk/crates/cashu" }
+cdk = { git = "https://github.com/heathermm55/cdk", path = "crates/cdk", default-features = false, features = ["wallet", "tor"] }
+cdk-sqlite = { git = "https://github.com/heathermm55/cdk", path = "crates/cdk-sqlite", features = ["wallet"] }
+cashu = { git = "https://github.com/heathermm55/cdk", path = "crates/cashu" }
