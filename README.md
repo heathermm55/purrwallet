@@ -20,6 +20,11 @@ PurrWallet is a powerful cashu ecash wallet built with Rust + Flutter, powered b
   <img src="zapstore/assets/s5.png" alt="Screenshot 5" width="150"/>
 </p>
 
+## Download
+
+- **PurrWallet iOS (TestFlight)**: https://testflight.apple.com/join/3SZFNdU9
+- **PurrWallet Android (Zapstore)**: https://zapstore.dev/apps/naddr1qvzqqqr7pvpzqqxlkgyptfc7y3tj8980m7lhwtjk55reyxuzsusp4wynwjtwarndqqfxxmmd9ec82unjwaskcmr9wshxzursqntc4u
+
 ## Features
 
 ### Core Features - Completed
