@@ -34,12 +34,12 @@ PurrWallet is a powerful cashu ecash wallet built with Rust + Flutter, powered b
 - [x] Deposit & withdraw (Lightning via melt)
 - [x] QR code scanning
 - [x] Access local mints
+- [x] Wallet recovery from seed
+- [x] Tor mints support
 
 ### Core Features - In Progress
-- [ ] Tor mints support
 - [ ] Melt quote verification
 - [ ] Mint discovery
-- [ ] Wallet recovery from seed
 - [ ] P2PK (Pay-to-Public-Key) send support
 - [ ] Check proofs validity
 - [ ] Screen lock & biometric authentication (Face ID / Touch ID)
