@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rust_plugin/src/rust/api/cashu.dart';
+
+import '../wallet/services/wallet_service.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'mint_info_page.dart';
@@ -283,6 +285,7 @@ class _MintDetailPageState extends State<MintDetailPage> {
       );
 
       _loadBalance();
+      WalletService.notifyWalletUpdated();
     } catch (e) {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
@@ -816,6 +819,7 @@ class _MintDetailPageState extends State<MintDetailPage> {
     }
   }
 
+  // ignore: unused_element
   void _showMintOptions() {
     showModalBottomSheet(
       context: context,

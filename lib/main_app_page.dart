@@ -90,6 +90,12 @@ class _MainAppPageState extends State<MainAppPage> {
         }
       }
     };
+
+    WalletService.onWalletUpdated = () {
+      if (mounted) {
+        _refreshWalletData();
+      }
+    };
   }
 
   /// Generate a new 32-byte seed as hex string

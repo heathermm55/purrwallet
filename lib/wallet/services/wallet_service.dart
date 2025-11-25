@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:rust_plugin/src/rust/api/cashu.dart';
@@ -30,6 +32,13 @@ class WalletService {
   // Callbacks for UI updates
   static Function(Map<String, String>)? onMintedAmountReceived;
   static Function(Map<String, String>)? onMeltedAmountReceived;
+  static VoidCallback? onWalletUpdated;
+
+  static void notifyWalletUpdated() {
+    try {
+      onWalletUpdated?.call();
+    } catch (_) {}
+  }
 
   /// Initialize wallet with seed phrase
   static Future<String> initializeWallet(String seedHex) async {
