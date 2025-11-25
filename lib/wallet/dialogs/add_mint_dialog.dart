@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rust_plugin/src/rust/api/cashu.dart';
+import '../services/wallet_service.dart';
 
 /// Show add mint dialog
 Future<void> showAddMintDialog({
@@ -10,11 +10,13 @@ Future<void> showAddMintDialog({
   final TextEditingController aliasController = TextEditingController();
   String? urlError;
 
+  final rootContext = context;
+
   return showDialog(
-    context: context,
+    context: rootContext,
     builder: (BuildContext dialogContext) {
       return StatefulBuilder(
-        builder: (context, setState) {
+        builder: (innerContext, setState) {
           return AlertDialog(
             backgroundColor: const Color(0xFF1A1A1A),
             title: const Text(
@@ -166,7 +168,12 @@ Future<void> showAddMintDialog({
                   Navigator.of(dialogContext).pop();
 
                   // Add the mint
-                  await _addMint(context, url, alias.isNotEmpty ? alias : 'Mint', onMintAdded);
+                  await _addMint(
+                    rootContext,
+                    url,
+                    alias.isNotEmpty ? alias : 'Mint',
+                    onMintAdded,
+                  );
                 },
                 child: const Text(
                   'Add Mint',
@@ -284,11 +291,12 @@ Future<void> _addMint(
     }
 
     // Call the Rust API to add the mint (alias is stored internally by the wallet)
-    await addMint(mintUrl: mintUrl);
+    // Use WalletService to ensure proper error handling and async backup
+    await WalletService.addMintService(mintUrl, 'sat');
 
     // Close loading dialog
     if (context.mounted) {
-      Navigator.of(context).pop();
+      Navigator.of(context, rootNavigator: true).pop();
     }
 
     // Show success message
@@ -310,7 +318,11 @@ Future<void> _addMint(
   } catch (e) {
     // Close loading dialog
     if (context.mounted) {
-      Navigator.of(context).pop();
+      try {
+        Navigator.of(context, rootNavigator: true).pop();
+      } catch (_) {
+        // Dialog might already be closed
+      }
     }
 
     // Show error message
