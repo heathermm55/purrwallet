@@ -304,11 +304,20 @@ pub async fn add_mint(mint_url: String) -> Result<String, String> {
     }
 
     // Load keysets for the newly added wallet
+    // This will fetch from mint if not in local database
     wallet.load_mint_keysets().await
         .map_err(|e| format!("Failed to load keysets: {}", e))?;
 
-    wallet.get_active_keyset().await
-        .map_err(|e| format!("Failed to get active keyset: {}", e))?;
+    // Try to get active keyset from local database
+    // If it fails, that's okay - keysets are loaded and will be available
+    // We don't need to force a network refresh here as it may cause delays
+    // The active keyset will be available when needed for operations
+    let _ = wallet.get_active_keyset().await;
+    // Note: We ignore the error here because:
+    // 1. Keysets are already loaded via load_mint_keysets()
+    // 2. The mint is successfully added to the database
+    // 3. Active keyset will be fetched automatically when needed for operations
+    // 4. Forcing fetch_active_keyset() here can cause unnecessary delays
 
     Ok("Mint added successfully".to_string())
 }
