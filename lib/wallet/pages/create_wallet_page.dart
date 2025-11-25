@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:rust_plugin/src/rust/api/cashu.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:rust_plugin/src/rust/api/cashu.dart';
+
+import '../services/wallet_service.dart';
 
 /// Create wallet page - Generate seed phrase and create wallet
 class CreateWalletPage extends StatefulWidget {
@@ -108,12 +110,13 @@ class _CreateWalletPageState extends State<CreateWalletPage> {
     try {
       // Save seed hex to secure storage
       await _secureStorage.write(key: _seedKey, value: _generatedSeedHex!);
+      await WalletService.storeMnemonic(_generatedMnemonic!);
 
       // Initialize MultiMintWallet
       final documentsDir = await getApplicationDocumentsDirectory();
       final databaseDir = documentsDir.path;
 
-      final initResult = await initMultiMintWallet(databaseDir: databaseDir, seedHex: _generatedSeedHex!);
+      await initMultiMintWallet(databaseDir: databaseDir, seedHex: _generatedSeedHex!);
 
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/main');

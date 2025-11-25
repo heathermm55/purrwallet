@@ -9,6 +9,7 @@ import 'package:rust_plugin/src/rust/api/cashu.dart';
 class WalletService {
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   static const String _seedKey = 'cashu_wallet_seed';
+  static const String _mnemonicKey = 'cashu_wallet_mnemonic';
   static const String _mintListKeyPrefix = 'cashu_wallet_mints';
 
   // Global monitoring timer
@@ -98,6 +99,22 @@ class WalletService {
     }
   }
 
+  /// Store mnemonic phrase (trimmed)
+  static Future<void> storeMnemonic(String mnemonic) async {
+    try {
+      await _secureStorage.write(key: _mnemonicKey, value: mnemonic.trim());
+    } catch (_) {}
+  }
+
+  /// Get stored mnemonic phrase
+  static Future<String?> getStoredMnemonic() async {
+    try {
+      return await _secureStorage.read(key: _mnemonicKey);
+    } catch (e) {
+      return null;
+    }
+  }
+
   /// Check if wallet exists
   static Future<bool> checkWalletExists(String mintUrl) async {
     try {
@@ -113,8 +130,20 @@ class WalletService {
   /// Add a new mint to the wallet
   static Future<String> addMintService(String mintUrl, String unit) async {
     try {
-      final result = await addMint(mintUrl: mintUrl);
-      await _refreshMintListBackup();
+      // Add timeout to prevent infinite waiting (60 seconds for regular, 120 for Tor)
+      final timeoutDuration = mintUrl.contains('.onion') 
+          ? const Duration(seconds: 120) 
+          : const Duration(seconds: 60);
+      
+      final result = await addMint(mintUrl: mintUrl)
+          .timeout(timeoutDuration, onTimeout: () {
+            throw Exception('Adding mint timed out. Please check your network connection and try again.');
+          });
+      
+      // Refresh mint list backup asynchronously without blocking
+      _refreshMintListBackup().catchError((e) {
+        // Silently ignore backup errors
+      });
       return result;
     } catch (e) {
       String errorMsg = e.toString();
@@ -207,6 +236,7 @@ class WalletService {
         await _secureStorage.delete(key: mintKey);
       }
       await _secureStorage.delete(key: _seedKey);
+      await _secureStorage.delete(key: _mnemonicKey);
     } catch (e) {
       // Failed to clear wallet data
     }

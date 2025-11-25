@@ -29,10 +29,12 @@ class _ImportWalletPageState extends State<ImportWalletPage> {
 
   void _validateMnemonic() {
     final text = _mnemonicController.text.trim();
-    final words = text.split(RegExp(r'\s+'));
+    final words = text.isEmpty ? <String>[] : text.split(RegExp(r'\s+'));
     
-    // Check if we have exactly 12 words and all are non-empty
-    final isValid = words.length == 12 && words.every((word) => word.isNotEmpty);
+    // Support both 12-word and 24-word phrases
+    final allowedWordCounts = {12, 24};
+    final isValid = allowedWordCounts.contains(words.length) &&
+        words.every((word) => word.isNotEmpty);
     
     if (_isValidMnemonic != isValid) {
       setState(() {
@@ -93,6 +95,7 @@ class _ImportWalletPageState extends State<ImportWalletPage> {
       
       // Save seed hex to secure storage
       await _secureStorage.write(key: _seedKey, value: seedHex);
+      await WalletService.storeMnemonic(mnemonicPhrase);
 
       // Initialize MultiMintWallet with imported seed
       final documentsDir = await getApplicationDocumentsDirectory();
@@ -162,7 +165,7 @@ class _ImportWalletPageState extends State<ImportWalletPage> {
             
             // Instruction text
             const Text(
-              'Enter your 12-word seed phrase to restore your wallet.',
+              'Enter your 12 or 24-word seed phrase to restore your wallet.',
               style: TextStyle(
                 color: Color(0xFF666666),
                 fontFamily: 'Courier',
@@ -201,15 +204,15 @@ class _ImportWalletPageState extends State<ImportWalletPage> {
                       color: Color(0xFF00FF00),
                       fontFamily: 'Courier',
                     ),
-                    maxLines: 3,
+                    maxLines: 4,
                     decoration: const InputDecoration(
-                      hintText: 'Enter your 12-word mnemonic phrase here...',
+                      hintText: 'Enter your 12 or 24-word mnemonic phrase here...',
                       hintStyle: TextStyle(
                         color: Color(0xFF666666),
                         fontFamily: 'Courier',
                       ),
                       border: InputBorder.none,
-                      helperText: '12-word mnemonic phrase separated by spaces',
+                      helperText: 'Mnemonic words separated by spaces (12 or 24 words)',
                       helperStyle: TextStyle(
                         color: Color(0xFF666666),
                         fontFamily: 'Courier',

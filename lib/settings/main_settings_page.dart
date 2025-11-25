@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:rust_plugin/src/rust/api/cashu.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'mints_page.dart';
+import '../wallet/services/wallet_service.dart';
 
 /// Main settings page with navigation to sub-settings
 class SettingsPage extends StatelessWidget {
@@ -417,24 +417,18 @@ class SettingsPage extends StatelessWidget {
   }
 
   Future<String> _getSeedPhrase() async {
-    try {
-      const storage = FlutterSecureStorage();
-      final seedHex = await storage.read(key: 'cashu_wallet_seed');
-
-      if (seedHex != null) {
-        // Convert hex to mnemonic using Rust function
-        try {
-          final mnemonic = await seedHexToMnemonic(seedHex: seedHex);
-          return mnemonic;
-        } catch (e) {
-          return 'Error converting seed to mnemonic: $e\nHex: ${seedHex.substring(0, 16)}...';
-        }
-      } else {
-        return 'No seed phrase found';
-      }
-    } catch (e) {
-      return 'Error loading seed: $e';
+    final storedMnemonic = await WalletService.getStoredMnemonic();
+    if (storedMnemonic != null && storedMnemonic.trim().isNotEmpty) {
+      return storedMnemonic.trim();
     }
+
+    final seedHex = await WalletService.getStoredSeed();
+    if (seedHex != null) {
+      final preview = seedHex.length > 16 ? '${seedHex.substring(0, 16)}...' : seedHex;
+      return 'Seed phrase not available. Please re-import your wallet using your 12-word phrase.\n\nSeed (hex): $preview';
+    }
+
+    return 'No seed phrase found';
   }
 
   // ignore: unused_element

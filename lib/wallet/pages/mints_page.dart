@@ -281,7 +281,7 @@ class _MintsPageState extends State<MintsPage> {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (BuildContext context) {
+          builder: (BuildContext dialogContext) {
             return Dialog(
               backgroundColor: const Color(0xFF1A1A1A),
               child: Padding(
@@ -318,12 +318,20 @@ class _MintsPageState extends State<MintsPage> {
         );
       }
 
-      // Add the mint using WalletService (handles Tor configuration for .onion)
-      await WalletService.addMintService(mintUrl, 'sat');
-      
-      // Close loading dialog
-      if (mounted) {
-        Navigator.of(context).pop();
+      try {
+        // Add the mint using WalletService (handles Tor configuration for .onion)
+        await WalletService.addMintService(mintUrl, 'sat');
+        
+        // Close loading dialog
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+      } catch (e) {
+        // Close loading dialog on error
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+        rethrow;
       }
 
       // Reload mints
@@ -343,9 +351,13 @@ class _MintsPageState extends State<MintsPage> {
         );
       }
     } catch (e) {
-      // Close loading dialog
+      // Close loading dialog if still open
       if (mounted) {
-        Navigator.of(context).pop();
+        try {
+          Navigator.of(context, rootNavigator: true).pop();
+        } catch (_) {
+          // Dialog might already be closed
+        }
       }
       
       if (mounted) {

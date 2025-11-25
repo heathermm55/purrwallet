@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:rust_plugin/src/rust/api/cashu.dart';
+import '../wallet/services/wallet_service.dart';
 
 /// Security settings page - Seed phrase and Tor options
 class SecurityPage extends StatefulWidget {
@@ -13,8 +13,6 @@ class SecurityPage extends StatefulWidget {
 }
 
 class _SecurityPageState extends State<SecurityPage> {
-  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
-  static const String _seedKey = 'cashu_wallet_seed';
   static const String _torPrefKey = 'cashu_tor_enabled';
 
   bool _torEnabled = true;
@@ -95,12 +93,19 @@ class _SecurityPageState extends State<SecurityPage> {
     }
   }
 
-  Future<String> _getSeedHex() async {
-    try {
-      return await _secureStorage.read(key: _seedKey) ?? 'No seed found';
-    } catch (e) {
-      return 'Error loading seed';
+  Future<String> _getSeedPhrase() async {
+    final storedMnemonic = await WalletService.getStoredMnemonic();
+    if (storedMnemonic != null && storedMnemonic.trim().isNotEmpty) {
+      return storedMnemonic.trim();
     }
+
+    final seedHex = await WalletService.getStoredSeed();
+    if (seedHex != null) {
+      final preview = seedHex.length > 16 ? '${seedHex.substring(0, 16)}...' : seedHex;
+      return 'Seed phrase not available. Please re-import using your 12-word phrase.\n\nSeed (hex): $preview';
+    }
+
+    return 'No seed phrase found';
   }
 
   @override
@@ -204,7 +209,7 @@ class _SecurityPageState extends State<SecurityPage> {
               ),
               const SizedBox(height: 8),
               FutureBuilder<String>(
-                future: _getSeedHex(),
+                future: _getSeedPhrase(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Text(
