@@ -37,7 +37,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.7.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 2143560358;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1346198312;
 
 // Section: executor
 
@@ -1462,6 +1462,63 @@ fn wire__crate__api__cashu__seed_hex_to_mnemonic_impl(
         },
     )
 }
+fn wire__crate__api__cashu__send_p2pk_tokens_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "send_p2pk_tokens",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_mint_url = <String>::sse_decode(&mut deserializer);
+            let api_amount = <u64>::sse_decode(&mut deserializer);
+            let api_memo = <Option<String>>::sse_decode(&mut deserializer);
+            let api_recipient_pubkey = <String>::sse_decode(&mut deserializer);
+            let api_additional_pubkeys = <Option<Vec<String>>>::sse_decode(&mut deserializer);
+            let api_refund_pubkeys = <Option<Vec<String>>>::sse_decode(&mut deserializer);
+            let api_required_sigs = <Option<u64>>::sse_decode(&mut deserializer);
+            let api_locktime = <Option<u64>>::sse_decode(&mut deserializer);
+            let api_sigflag = <Option<String>>::sse_decode(&mut deserializer);
+            let api_refund_required_sigs = <Option<u64>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::cashu::send_p2pk_tokens(
+                            api_mint_url,
+                            api_amount,
+                            api_memo,
+                            api_recipient_pubkey,
+                            api_additional_pubkeys,
+                            api_refund_pubkeys,
+                            api_required_sigs,
+                            api_locktime,
+                            api_sigflag,
+                            api_refund_required_sigs,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__cashu__send_tokens_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2202,17 +2259,18 @@ fn pde_ffi_dispatcher_primary_impl(
         37 => wire__crate__api__cashu__remove_mint_impl(port, ptr, rust_vec_len, data_len),
         38 => wire__crate__api__cashu__restore_mint_impl(port, ptr, rust_vec_len, data_len),
         40 => wire__crate__api__cashu__seed_hex_to_mnemonic_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__cashu__send_tokens_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__cashu__set_tor_config_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__cashu__validate_mnemonic_phrase_impl(
+        41 => wire__crate__api__cashu__send_p2pk_tokens_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__cashu__send_tokens_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__cashu__set_tor_config_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__cashu__validate_mnemonic_phrase_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        46 => wire__crate__api__cashu__verify_token_dleq_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__cashu__verify_token_p2pk_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__cashu__wallet_exists_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__cashu__verify_token_dleq_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__cashu__verify_token_p2pk_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__cashu__wallet_exists_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -2239,8 +2297,8 @@ fn pde_ffi_dispatcher_sync_impl(
         31 => wire__crate__api__nostr__nsec_to_secret_key_impl(ptr, rust_vec_len, data_len),
         34 => wire__crate__api__nostr__public_key_to_npub_impl(ptr, rust_vec_len, data_len),
         39 => wire__crate__api__nostr__secret_key_to_nsec_impl(ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__nostr__sign_event_impl(ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__nostr__verify_event_impl(ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__nostr__sign_event_impl(ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__nostr__verify_event_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }

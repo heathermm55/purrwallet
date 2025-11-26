@@ -5,6 +5,7 @@ Future<void> showSendOptionsDialog({
   required BuildContext context,
   required VoidCallback onEcashSelected,
   required VoidCallback onLightningSelected,
+  required VoidCallback onP2pkSelected,
 }) async {
   return showDialog(
     context: context,
@@ -26,11 +27,18 @@ Future<void> showSendOptionsDialog({
               leading: const Icon(Icons.send, color: Color(0xFF00FF00)),
               title: const Text(
                 'Ecash',
-                style: TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
               ),
               subtitle: const Text(
                 'Create Cashu token and share',
-                style: TextStyle(color: Color(0xFF666666), fontFamily: 'Courier', fontSize: 10),
+                style: TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 10,
+                ),
               ),
               onTap: () {
                 Navigator.of(dialogContext).pop();
@@ -39,14 +47,44 @@ Future<void> showSendOptionsDialog({
             ),
             const Divider(color: Color(0xFF333333)),
             ListTile(
+              leading: const Icon(Icons.key, color: Color(0xFF00FF00)),
+              title: const Text(
+                'Ecash (P2PK)',
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
+              ),
+              subtitle: const Text(
+                'Send ecash locked to a pubkey',
+                style: TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 10,
+                ),
+              ),
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                onP2pkSelected();
+              },
+            ),
+            const Divider(color: Color(0xFF333333)),
+            ListTile(
               leading: const Icon(Icons.flash_on, color: Color(0xFF00FF00)),
               title: const Text(
                 'Lightning',
-                style: TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
+                style: TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
               ),
               subtitle: const Text(
                 'Withdraw funds by paying invoice',
-                style: TextStyle(color: Color(0xFF666666), fontFamily: 'Courier', fontSize: 10),
+                style: TextStyle(
+                  color: Color(0xFF666666),
+                  fontFamily: 'Courier',
+                  fontSize: 10,
+                ),
               ),
               onTap: () {
                 Navigator.of(dialogContext).pop();
@@ -59,4 +97,3 @@ Future<void> showSendOptionsDialog({
     },
   );
 }
-

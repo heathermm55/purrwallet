@@ -6,7 +6,7 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `extract_supported_nuts`, `get_database_path`, `load_wallets_from_database`, `parse_seed_from_hex`, `wallet_database_exists`
+// These functions are ignored because they are not marked as `pub`: `build_p2pk_spending_conditions`, `extract_supported_nuts`, `get_database_path`, `load_wallets_from_database`, `parse_pubkey_list`, `parse_public_key`, `parse_seed_from_hex`, `parse_sigflag`, `wallet_database_exists`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `try_from`
 
 /// Initialize MultiMintWallet
@@ -64,6 +64,30 @@ Future<String> sendTokens({
   mintUrl: mintUrl,
   amount: amount,
   memo: memo,
+);
+
+Future<String> sendP2PkTokens({
+  required String mintUrl,
+  required BigInt amount,
+  String? memo,
+  required String recipientPubkey,
+  List<String>? additionalPubkeys,
+  List<String>? refundPubkeys,
+  BigInt? requiredSigs,
+  BigInt? locktime,
+  String? sigflag,
+  BigInt? refundRequiredSigs,
+}) => RustLib.instance.api.crateApiCashuSendP2PkTokens(
+  mintUrl: mintUrl,
+  amount: amount,
+  memo: memo,
+  recipientPubkey: recipientPubkey,
+  additionalPubkeys: additionalPubkeys,
+  refundPubkeys: refundPubkeys,
+  requiredSigs: requiredSigs,
+  locktime: locktime,
+  sigflag: sigflag,
+  refundRequiredSigs: refundRequiredSigs,
 );
 
 /// Receive tokens using CDK MultiMintWallet API directly - auto-detects mint URL from token

@@ -1,2 +1,2 @@
-pub mod nostr;
 pub mod cashu;
+pub mod nostr;

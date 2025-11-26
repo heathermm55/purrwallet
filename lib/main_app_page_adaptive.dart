@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rust_plugin/src/rust/api/cashu.dart';
+import 'package:rust_plugin/src/rust/api/nostr.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:async';
 import 'dart:math';
@@ -14,6 +15,7 @@ import 'wallet/dialogs/receive_options_dialog.dart';
 import 'wallet/dialogs/send_options_dialog.dart';
 import 'wallet/dialogs/ecash_receive_dialog.dart';
 import 'wallet/dialogs/ecash_send_dialog.dart';
+import 'wallet/dialogs/p2pk_send_dialog.dart';
 import 'wallet/dialogs/lightning_receive_dialog.dart';
 import 'wallet/dialogs/lightning_send_dialog.dart';
 import 'wallet/dialogs/invoice_display_dialog.dart';
@@ -33,9 +35,10 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
   // Cashu Wallet state
   WalletInfo? _walletInfo;
   List<TransactionInfo> _transactions = [];
-  
+
   // Split view state
-  String _selectedDetailView = 'home'; // 'home', 'transactions', 'mints', or 'settings'
+  String _selectedDetailView =
+      'home'; // 'home', 'transactions', 'mints', or 'settings'
 
   // Secure storage for seed
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
@@ -60,7 +63,10 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
             SnackBar(
               content: Text(
                 'Payment received! $totalMinted sats minted to wallet',
-                style: const TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
               ),
               backgroundColor: const Color(0xFF1A1A1A),
               duration: const Duration(seconds: 3),
@@ -83,7 +89,10 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
             SnackBar(
               content: Text(
                 'Payment sent! $completedCount melt quotes completed',
-                style: const TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontFamily: 'Courier',
+                ),
               ),
               backgroundColor: const Color(0xFF1A1A1A),
               duration: const Duration(seconds: 3),
@@ -192,11 +201,7 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
           padding: const EdgeInsets.all(12),
           children: [
             // Menu items
-            _buildSidebarMenuItem(
-              'Home',
-              Icons.home,
-              'home',
-            ),
+            _buildSidebarMenuItem('Home', Icons.home, 'home'),
             const SizedBox(height: 4),
             _buildSidebarMenuItem(
               'Transactions',
@@ -210,11 +215,7 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
               'mints',
             ),
             const SizedBox(height: 4),
-            _buildSidebarMenuItem(
-              'Settings',
-              Icons.settings,
-              'settings',
-            ),
+            _buildSidebarMenuItem('Settings', Icons.settings, 'settings'),
           ],
         ),
       );
@@ -236,7 +237,9 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
                       ? '${_formatBalance(_walletInfo!.balance.toString())} sats'
                       : '0 sats',
                   null, // No USD display
-                  const LinearGradient(colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)]),
+                  const LinearGradient(
+                    colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
+                  ),
                   Icons.flash_on,
                 ),
               ),
@@ -264,10 +267,11 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => TransactionsPage(
-                                transactions: _transactions,
-                                onRefresh: (_) => _refreshWalletData(),
-                              ),
+                              builder:
+                                  (context) => TransactionsPage(
+                                    transactions: _transactions,
+                                    onRefresh: (_) => _refreshWalletData(),
+                                  ),
                             ),
                           );
                         },
@@ -305,7 +309,8 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
                       ),
                     );
                   },
-                  childCount: _transactions.length > 10 ? 10 : _transactions.length,
+                  childCount:
+                      _transactions.length > 10 ? 10 : _transactions.length,
                 ),
               ),
 
@@ -313,7 +318,7 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
             SliverToBoxAdapter(child: const SizedBox(height: 100)),
           ],
         ),
-        
+
         // Floating bottom navigation bar (only for mobile)
         if (!ResponsiveLayout.shouldUseSplitView(context))
           Positioned(
@@ -340,39 +345,62 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
                   _buildBottomNavButton(
                     'Receive',
                     Icons.keyboard_arrow_down,
-                    onTap: () => showReceiveOptionsDialog(
-                      context: context,
-                      onEcashSelected: () => showEcashReceiveDialog(
-                        context: context,
-                        onSuccess: _refreshWalletData,
-                      ),
-                      onLightningSelected: () => showLightningReceiveDialog(
-                        context: context,
-                        onCreateInvoice: (amount, mintUrl) =>
-                            _createLightningInvoice(amount, mintUrl: mintUrl),
-                        onRefresh: _refreshWalletData,
-                      ),
-                    ),
+                    onTap:
+                        () => showReceiveOptionsDialog(
+                          context: context,
+                          onEcashSelected:
+                              () => showEcashReceiveDialog(
+                                context: context,
+                                onSuccess: _refreshWalletData,
+                              ),
+                          onLightningSelected:
+                              () => showLightningReceiveDialog(
+                                context: context,
+                                onCreateInvoice:
+                                    (amount, mintUrl) =>
+                                        _createLightningInvoice(
+                                          amount,
+                                          mintUrl: mintUrl,
+                                        ),
+                                onRefresh: _refreshWalletData,
+                              ),
+                        ),
                   ),
-                  _buildBottomNavButton('Scan', Icons.qr_code_scanner, onTap: _showScanDialog),
+                  _buildBottomNavButton(
+                    'Scan',
+                    Icons.qr_code_scanner,
+                    onTap: _showScanDialog,
+                  ),
                   _buildBottomNavButton(
                     'Send',
                     Icons.keyboard_arrow_up,
-                    onTap: () => showSendOptionsDialog(
-                      context: context,
-                      onEcashSelected: () async {
-                        await showEcashSendDialog(
+                    onTap:
+                        () => showSendOptionsDialog(
                           context: context,
-                          onCreateToken: (amount, memo, mintUrl) =>
-                              _createEcashToken(amount, memo, mintUrl),
-                          onRefresh: _refreshWalletData,
-                        );
-                      },
-                      onLightningSelected: () => showLightningSendDialog(
-                        context: context,
-                        onPayInvoice: (invoice) => _payLightningInvoice(invoice),
-                      ),
-                    ),
+                          onEcashSelected: () async {
+                            await showEcashSendDialog(
+                              context: context,
+                              onCreateToken:
+                                  (amount, memo, mintUrl) =>
+                                      _createEcashToken(amount, memo, mintUrl),
+                              onRefresh: _refreshWalletData,
+                            );
+                          },
+                          onLightningSelected:
+                              () => showLightningSendDialog(
+                                context: context,
+                                onPayInvoice:
+                                    (invoice) => _payLightningInvoice(invoice),
+                              ),
+                          onP2pkSelected: () async {
+                            await showP2pkSendDialog(
+                              context: context,
+                              onCreateToken:
+                                  (request) => _createP2pkToken(request),
+                              onRefresh: _refreshWalletData,
+                            );
+                          },
+                        ),
                   ),
                 ],
               ),
@@ -417,7 +445,9 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
                         ? '${_formatBalance(_walletInfo!.balance.toString())} sats'
                         : '0 sats',
                     null,
-                    const LinearGradient(colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)]),
+                    const LinearGradient(
+                      colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
+                    ),
                     Icons.flash_on,
                   ),
                 ),
@@ -477,7 +507,8 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
                       ),
                     );
                   },
-                  childCount: _transactions.length > 10 ? 10 : _transactions.length,
+                  childCount:
+                      _transactions.length > 10 ? 10 : _transactions.length,
                 ),
               ),
 
@@ -485,7 +516,7 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
               SliverToBoxAdapter(child: const SizedBox(height: 100)),
             ],
           ),
-          
+
           // Floating bottom navigation bar
           Positioned(
             left: 20,
@@ -511,39 +542,62 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
                   _buildBottomNavButton(
                     'Receive',
                     Icons.keyboard_arrow_down,
-                    onTap: () => showReceiveOptionsDialog(
-                      context: context,
-                      onEcashSelected: () => showEcashReceiveDialog(
-                        context: context,
-                        onSuccess: _refreshWalletData,
-                      ),
-                      onLightningSelected: () => showLightningReceiveDialog(
-                        context: context,
-                        onCreateInvoice: (amount, mintUrl) =>
-                            _createLightningInvoice(amount, mintUrl: mintUrl),
-                        onRefresh: _refreshWalletData,
-                      ),
-                    ),
+                    onTap:
+                        () => showReceiveOptionsDialog(
+                          context: context,
+                          onEcashSelected:
+                              () => showEcashReceiveDialog(
+                                context: context,
+                                onSuccess: _refreshWalletData,
+                              ),
+                          onLightningSelected:
+                              () => showLightningReceiveDialog(
+                                context: context,
+                                onCreateInvoice:
+                                    (amount, mintUrl) =>
+                                        _createLightningInvoice(
+                                          amount,
+                                          mintUrl: mintUrl,
+                                        ),
+                                onRefresh: _refreshWalletData,
+                              ),
+                        ),
                   ),
-                  _buildBottomNavButton('Scan', Icons.qr_code_scanner, onTap: _showScanDialog),
+                  _buildBottomNavButton(
+                    'Scan',
+                    Icons.qr_code_scanner,
+                    onTap: _showScanDialog,
+                  ),
                   _buildBottomNavButton(
                     'Send',
                     Icons.keyboard_arrow_up,
-                    onTap: () => showSendOptionsDialog(
-                      context: context,
-                      onEcashSelected: () async {
-                        await showEcashSendDialog(
+                    onTap:
+                        () => showSendOptionsDialog(
                           context: context,
-                          onCreateToken: (amount, memo, mintUrl) =>
-                              _createEcashToken(amount, memo, mintUrl),
-                          onRefresh: _refreshWalletData,
-                        );
-                      },
-                      onLightningSelected: () => showLightningSendDialog(
-                        context: context,
-                        onPayInvoice: (invoice) => _payLightningInvoice(invoice),
-                      ),
-                    ),
+                          onEcashSelected: () async {
+                            await showEcashSendDialog(
+                              context: context,
+                              onCreateToken:
+                                  (amount, memo, mintUrl) =>
+                                      _createEcashToken(amount, memo, mintUrl),
+                              onRefresh: _refreshWalletData,
+                            );
+                          },
+                          onLightningSelected:
+                              () => showLightningSendDialog(
+                                context: context,
+                                onPayInvoice:
+                                    (invoice) => _payLightningInvoice(invoice),
+                              ),
+                          onP2pkSelected: () async {
+                            await showP2pkSendDialog(
+                              context: context,
+                              onCreateToken:
+                                  (request) => _createP2pkToken(request),
+                              onRefresh: _refreshWalletData,
+                            );
+                          },
+                        ),
                   ),
                 ],
               ),
@@ -558,38 +612,39 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
   Widget _buildTransactionsView() {
     return Container(
       color: Colors.black,
-      child: _transactions.isEmpty
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.receipt_long,
-                    color: Color(0xFF666666),
-                    size: 64,
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'No transactions yet',
-                    style: TextStyle(
+      child:
+          _transactions.isEmpty
+              ? const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.receipt_long,
                       color: Color(0xFF666666),
-                      fontFamily: 'Courier',
-                      fontSize: 16,
+                      size: 64,
                     ),
-                  ),
-                ],
+                    SizedBox(height: 16),
+                    Text(
+                      'No transactions yet',
+                      style: TextStyle(
+                        color: Color(0xFF666666),
+                        fontFamily: 'Courier',
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+              : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _transactions.length,
+                itemBuilder: (context, index) {
+                  return TransactionItem(
+                    transaction: _transactions[index],
+                    onRefresh: _refreshWalletData,
+                  );
+                },
               ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _transactions.length,
-              itemBuilder: (context, index) {
-                return TransactionItem(
-                  transaction: _transactions[index],
-                  onRefresh: _refreshWalletData,
-                );
-              },
-            ),
     );
   }
 
@@ -665,7 +720,11 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
     );
   }
 
-  Widget _buildBottomNavButton(String label, IconData icon, {VoidCallback? onTap}) {
+  Widget _buildBottomNavButton(
+    String label,
+    IconData icon, {
+    VoidCallback? onTap,
+  }) {
     return Expanded(
       child: InkWell(
         onTap: onTap,
@@ -714,7 +773,10 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
           children: [
             Icon(
               icon,
-              color: isSelected ? const Color(0xFF00FF00) : const Color(0xFF666666),
+              color:
+                  isSelected
+                      ? const Color(0xFF00FF00)
+                      : const Color(0xFF666666),
               size: 24,
             ),
             const SizedBox(width: 12),
@@ -722,7 +784,10 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
               child: Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? const Color(0xFF00FF00) : const Color(0xFF888888),
+                  color:
+                      isSelected
+                          ? const Color(0xFF00FF00)
+                          : const Color(0xFF888888),
                   fontFamily: 'Courier',
                   fontSize: 14,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -771,7 +836,10 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
         SnackBar(
           content: Text(
             'Successfully received $receivedAmount sats!',
-            style: const TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
+            style: const TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+            ),
           ),
           backgroundColor: const Color(0xFF1A1A1A),
           duration: const Duration(seconds: 3),
@@ -785,7 +853,10 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
         SnackBar(
           content: Text(
             'Failed to receive token: $e',
-            style: const TextStyle(color: Color(0xFFFF6B6B), fontFamily: 'Courier'),
+            style: const TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
           ),
           backgroundColor: const Color(0xFF1A1A1A),
           duration: const Duration(seconds: 3),
@@ -811,7 +882,10 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
                 const SizedBox(height: 16),
                 Text(
                   'Creating lightning invoice...',
-                  style: const TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
+                  style: const TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
                 ),
               ],
             ),
@@ -829,7 +903,10 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
             const SnackBar(
               content: Text(
                 'No mints available. Please add a mint first.',
-                style: TextStyle(color: Color(0xFFFF6B6B), fontFamily: 'Courier'),
+                style: TextStyle(
+                  color: Color(0xFFFF6B6B),
+                  fontFamily: 'Courier',
+                ),
               ),
               backgroundColor: Color(0xFF1A1A1A),
               duration: Duration(seconds: 3),
@@ -841,10 +918,15 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
         final mintString = mints.first;
         final lastColonIndex = mintString.lastIndexOf(':');
         selectedMintUrl =
-            lastColonIndex != -1 ? mintString.substring(0, lastColonIndex) : mintString;
+            lastColonIndex != -1
+                ? mintString.substring(0, lastColonIndex)
+                : mintString;
       }
 
-      final quote = await createMintQuote(mintUrl: selectedMintUrl, amount: BigInt.from(amount));
+      final quote = await createMintQuote(
+        mintUrl: selectedMintUrl,
+        amount: BigInt.from(amount),
+      );
 
       final invoice = quote['request']!;
       final invoiceAmount = int.parse(quote['amount']!);
@@ -866,7 +948,10 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
         SnackBar(
           content: Text(
             'Failed to create lightning invoice: $e',
-            style: const TextStyle(color: Color(0xFFFF6B6B), fontFamily: 'Courier'),
+            style: const TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
           ),
           backgroundColor: const Color(0xFF1A1A1A),
           duration: const Duration(seconds: 3),
@@ -915,7 +1000,9 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
     } else if (trimmedContent.toLowerCase().startsWith('lnbc') ||
         trimmedContent.toLowerCase().startsWith('lightning:')) {
       final invoice =
-          trimmedContent.startsWith('lightning:') ? trimmedContent.substring(10) : trimmedContent;
+          trimmedContent.startsWith('lightning:')
+              ? trimmedContent.substring(10)
+              : trimmedContent;
       showLightningSendDialog(
         context: context,
         onPayInvoice: (inv) => _payLightningInvoice(inv),
@@ -926,7 +1013,10 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
         SnackBar(
           content: Text(
             'Unknown content format. Expected Cashu token (cashu...) or Lightning invoice (lnbc...)',
-            style: const TextStyle(color: Color(0xFFFF6B6B), fontFamily: 'Courier'),
+            style: const TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
           ),
           backgroundColor: const Color(0xFF1A1A1A),
           duration: const Duration(seconds: 3),
@@ -935,7 +1025,11 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
     }
   }
 
-  Future<void> _createEcashToken(String amount, String memo, String mintUrl) async {
+  Future<void> _createEcashToken(
+    String amount,
+    String memo,
+    String mintUrl,
+  ) async {
     if (amount.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -995,7 +1089,10 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
                 const SizedBox(height: 16),
                 Text(
                   'Creating ecash token for $amount sats...',
-                  style: const TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
+                  style: const TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
                 ),
               ],
             ),
@@ -1033,7 +1130,218 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
         SnackBar(
           content: Text(
             'Failed to create token: $e',
-            style: const TextStyle(color: Color(0xFFFF6B6B), fontFamily: 'Courier'),
+            style: const TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
+          ),
+          backgroundColor: const Color(0xFF1A1A1A),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  Future<void> _createP2pkToken(P2pkSendRequest request) async {
+    final amountText = request.amount.trim();
+    if (amountText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please enter an amount',
+            style: TextStyle(color: Color(0xFFFF6B6B), fontFamily: 'Courier'),
+          ),
+          backgroundColor: Color(0xFF1A1A1A),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    final int parsedAmount = int.tryParse(amountText) ?? 0;
+    if (parsedAmount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please enter a valid amount',
+            style: TextStyle(color: Color(0xFFFF6B6B), fontFamily: 'Courier'),
+          ),
+          backgroundColor: Color(0xFF1A1A1A),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    if (request.mintUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please select a mint',
+            style: TextStyle(color: Color(0xFFFF6B6B), fontFamily: 'Courier'),
+          ),
+          backgroundColor: Color(0xFF1A1A1A),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // Process recipient public key - support both hex and npub format
+    String recipientKey;
+    final trimmedKey = request.recipientPubKey.trim();
+
+    if (trimmedKey.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please enter a public key',
+            style: TextStyle(color: Color(0xFFFF6B6B), fontFamily: 'Courier'),
+          ),
+          backgroundColor: Color(0xFF1A1A1A),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // Check if input is npub format
+    if (trimmedKey.toLowerCase().startsWith('npub')) {
+      try {
+        // Decode npub to hex public key
+        final hexPubKey = npubToPublicKey(npub: trimmedKey);
+        // Add 02 prefix for compressed public key
+        recipientKey = '02$hexPubKey';
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Invalid npub format: $e',
+              style: const TextStyle(
+                color: Color(0xFFFF6B6B),
+                fontFamily: 'Courier',
+              ),
+            ),
+            backgroundColor: const Color(0xFF1A1A1A),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+    } else {
+      // Validate hex format
+      final hexRegex = RegExp(r'^[0-9a-fA-F]+$');
+      if (!hexRegex.hasMatch(trimmedKey) || trimmedKey.length.isOdd) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Please enter a valid hex public key or npub',
+              style: TextStyle(color: Color(0xFFFF6B6B), fontFamily: 'Courier'),
+            ),
+            backgroundColor: Color(0xFF1A1A1A),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+      // If hex doesn't start with 02 or 03, add 02 prefix
+      recipientKey =
+          trimmedKey.startsWith('02') || trimmedKey.startsWith('03')
+              ? trimmedKey
+              : '02$trimmedKey';
+    }
+
+    final sanitizedAdditional =
+        request.additionalPubKeys
+            .map((key) => key.trim())
+            .where((key) => key.isNotEmpty)
+            .toSet()
+            .toList();
+    final sanitizedRefund =
+        request.refundPubKeys
+            .map((key) => key.trim())
+            .where((key) => key.isNotEmpty)
+            .toSet()
+            .toList();
+
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1A1A1A),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF00)),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Creating P2PK token for $parsedAmount sats...',
+                  style: const TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      String parsedMintUrl = request.mintUrl;
+      final parts = request.mintUrl.split(':');
+      if (parts.length >= 2) {
+        parsedMintUrl = parts.sublist(0, parts.length - 1).join(':');
+      }
+
+      final token = await sendP2PkTokens(
+        mintUrl: parsedMintUrl,
+        amount: BigInt.from(parsedAmount),
+        memo: request.memo.trim().isNotEmpty ? request.memo : null,
+        recipientPubkey: recipientKey,
+        additionalPubkeys:
+            sanitizedAdditional.isEmpty ? null : sanitizedAdditional,
+        refundPubkeys: sanitizedRefund.isEmpty ? null : sanitizedRefund,
+        requiredSigs:
+            request.requiredSignatures != null
+                ? BigInt.from(request.requiredSignatures!)
+                : null,
+        locktime:
+            request.locktimeSeconds != null
+                ? BigInt.from(request.locktimeSeconds!)
+                : null,
+        sigflag: request.sigFlag,
+        refundRequiredSigs:
+            request.refundRequiredSignatures != null
+                ? BigInt.from(request.refundRequiredSignatures!)
+                : null,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      showEcashTokenDialog(
+        context: context,
+        token: token,
+        amount: parsedAmount,
+      );
+
+      _refreshWalletData();
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to create P2PK token: $e',
+            style: const TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
           ),
           backgroundColor: const Color(0xFF1A1A1A),
           duration: const Duration(seconds: 3),
@@ -1047,7 +1355,10 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
       SnackBar(
         content: Text(
           'Payment received! $mintedAmount sats minted to wallet',
-          style: const TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
+          style: const TextStyle(
+            color: Color(0xFF00FF00),
+            fontFamily: 'Courier',
+          ),
         ),
         backgroundColor: const Color(0xFF1A1A1A),
         duration: const Duration(seconds: 3),
@@ -1116,7 +1427,10 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
                 const SizedBox(height: 16),
                 const Text(
                   'Paying lightning invoice...',
-                  style: TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
+                  style: TextStyle(
+                    color: Color(0xFF00FF00),
+                    fontFamily: 'Courier',
+                  ),
                 ),
               ],
             ),
@@ -1142,7 +1456,10 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
 
       final mintString = mints.first;
       final lastColonIndex = mintString.lastIndexOf(':');
-      final mintUrl = lastColonIndex != -1 ? mintString.substring(0, lastColonIndex) : mintString;
+      final mintUrl =
+          lastColonIndex != -1
+              ? mintString.substring(0, lastColonIndex)
+              : mintString;
 
       final paymentStatus = await payInvoiceForWallet(
         mintUrl: mintUrl,
@@ -1156,7 +1473,10 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
         SnackBar(
           content: Text(
             'Lightning payment completed! Status: $paymentStatus',
-            style: const TextStyle(color: Color(0xFF00FF00), fontFamily: 'Courier'),
+            style: const TextStyle(
+              color: Color(0xFF00FF00),
+              fontFamily: 'Courier',
+            ),
           ),
           backgroundColor: const Color(0xFF1A1A1A),
           duration: const Duration(seconds: 3),
@@ -1170,7 +1490,10 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
         SnackBar(
           content: Text(
             'Failed to pay lightning invoice: $e',
-            style: const TextStyle(color: Color(0xFFFF6B6B), fontFamily: 'Courier'),
+            style: const TextStyle(
+              color: Color(0xFFFF6B6B),
+              fontFamily: 'Courier',
+            ),
           ),
           backgroundColor: const Color(0xFF1A1A1A),
           duration: const Duration(seconds: 3),
@@ -1186,4 +1509,3 @@ class _MainAppPageAdaptiveState extends State<MainAppPageAdaptive> {
     super.dispose();
   }
 }
-

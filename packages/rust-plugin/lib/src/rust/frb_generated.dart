@@ -65,7 +65,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.7.0';
 
   @override
-  int get rustContentHash => 2143560358;
+  int get rustContentHash => 1346198312;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -195,6 +195,19 @@ abstract class RustLibApi extends BaseApi {
   String crateApiNostrSecretKeyToNsec({required String secretKey});
 
   Future<String> crateApiCashuSeedHexToMnemonic({required String seedHex});
+
+  Future<String> crateApiCashuSendP2PkTokens({
+    required String mintUrl,
+    required BigInt amount,
+    String? memo,
+    required String recipientPubkey,
+    List<String>? additionalPubkeys,
+    List<String>? refundPubkeys,
+    BigInt? requiredSigs,
+    BigInt? locktime,
+    String? sigflag,
+    BigInt? refundRequiredSigs,
+  });
 
   Future<String> crateApiCashuSendTokens({
     required String mintUrl,
@@ -1399,6 +1412,79 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<String> crateApiCashuSendP2PkTokens({
+    required String mintUrl,
+    required BigInt amount,
+    String? memo,
+    required String recipientPubkey,
+    List<String>? additionalPubkeys,
+    List<String>? refundPubkeys,
+    BigInt? requiredSigs,
+    BigInt? locktime,
+    String? sigflag,
+    BigInt? refundRequiredSigs,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(mintUrl, serializer);
+          sse_encode_u_64(amount, serializer);
+          sse_encode_opt_String(memo, serializer);
+          sse_encode_String(recipientPubkey, serializer);
+          sse_encode_opt_list_String(additionalPubkeys, serializer);
+          sse_encode_opt_list_String(refundPubkeys, serializer);
+          sse_encode_opt_box_autoadd_u_64(requiredSigs, serializer);
+          sse_encode_opt_box_autoadd_u_64(locktime, serializer);
+          sse_encode_opt_String(sigflag, serializer);
+          sse_encode_opt_box_autoadd_u_64(refundRequiredSigs, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 41,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiCashuSendP2PkTokensConstMeta,
+        argValues: [
+          mintUrl,
+          amount,
+          memo,
+          recipientPubkey,
+          additionalPubkeys,
+          refundPubkeys,
+          requiredSigs,
+          locktime,
+          sigflag,
+          refundRequiredSigs,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCashuSendP2PkTokensConstMeta =>
+      const TaskConstMeta(
+        debugName: "send_p2pk_tokens",
+        argNames: [
+          "mintUrl",
+          "amount",
+          "memo",
+          "recipientPubkey",
+          "additionalPubkeys",
+          "refundPubkeys",
+          "requiredSigs",
+          "locktime",
+          "sigflag",
+          "refundRequiredSigs",
+        ],
+      );
+
+  @override
   Future<String> crateApiCashuSendTokens({
     required String mintUrl,
     required BigInt amount,
@@ -1414,7 +1500,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 41,
+            funcId: 42,
             port: port_,
           );
         },
@@ -1444,7 +1530,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 42,
+            funcId: 43,
             port: port_,
           );
         },
@@ -1473,7 +1559,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(eventJson, serializer);
           sse_encode_String(privateKey, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 43)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 44)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -1503,7 +1589,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 44,
+            funcId: 45,
             port: port_,
           );
         },
@@ -1531,7 +1617,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_box_autoadd_nostr_event(event, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 45)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 46)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -1561,7 +1647,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 46,
+            funcId: 47,
             port: port_,
           );
         },
@@ -1598,7 +1684,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 47,
+            funcId: 48,
             port: port_,
           );
         },
@@ -1633,7 +1719,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 48,
+            funcId: 49,
             port: port_,
           );
         },
